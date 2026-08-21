@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nunta Larisa și Cătălin</title>
+<meta name="description" content="Încarcă pozele și clipurile tale de la nunta Larisei și a lui Cătălin.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #6b8f71;
+    --verde-inchis: #4a6b50;
+    --verde-pal: #dce8dd;
+    --crem: #faf8f3;
+    --auriu: #c9b287;
+    --text: #3c4038;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+    background: var(--crem);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .ornament {
+    color: var(--auriu);
+    letter-spacing: .5em;
+    font-size: .9rem;
+    margin: 26px 0 4px;
+  }
+  .photo-frame {
+    width: min(78vw, 340px);
+    aspect-ratio: 4 / 5;
+    border-radius: 50% 50% 46% 46% / 40% 40% 56% 56%;
+    overflow: hidden;
+    border: 6px solid #fff;
+    box-shadow: 0 12px 40px rgba(75, 107, 80, .25);
+    background: var(--verde-pal);
+    margin: 18px 0 8px;
+  }
+  .photo-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  h1 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 500;
+    font-size: clamp(2rem, 8vw, 3.2rem);
+    color: var(--verde-inchis);
+    text-align: center;
+    line-height: 1.15;
+    margin-top: 18px;
+    padding: 0 16px;
+  }
+  h1 .amp {
+    font-style: italic;
+    color: var(--verde);
+  }
+  .subtitle {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 1.15rem;
+    color: var(--verde);
+    margin-top: 8px;
+    text-align: center;
+    padding: 0 24px;
+  }
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0;
+    color: var(--auriu);
+  }
+  .divider::before, .divider::after {
+    content: '';
+    width: 60px;
+    height: 1px;
+    background: var(--auriu);
+  }
+  .upload-btn {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: .04em;
+    color: #fff;
+    background: linear-gradient(135deg, var(--verde) 0%, var(--verde-inchis) 100%);
+    border: none;
+    border-radius: 999px;
+    padding: 18px 42px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(75, 107, 80, .35);
+    transition: transform .15s, box-shadow .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .upload-btn:active { transform: scale(.97); }
+  .upload-btn svg { flex: none; }
+  input[type="file"] { display: none; }
+  .hint {
+    font-size: .8rem;
+    color: #8a8f85;
+    margin-top: 14px;
+    text-align: center;
+    padding: 0 24px;
+  }
+  .progress-list {
+    width: min(92vw, 480px);
+    margin: 26px 0 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .progress-item {
+    background: #fff;
+    border: 1px solid var(--verde-pal);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: .8rem;
+  }
+  .progress-item .name {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .progress-item .name .status { flex: none; color: var(--verde-inchis); }
+  .progress-item .track {
+    height: 6px;
+    background: var(--verde-pal);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-item .fill {
+    height: 100%;
+    width: 0;
+    background: var(--verde);
+    border-radius: 3px;
+    transition: width .2s;
+  }
+  .progress-item.error .status { color: #b05050; }
+  .progress-item.done .fill { background: var(--verde-inchis); }
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--verde-inchis);
+    color: #fff;
+    padding: 14px 26px;
+    border-radius: 999px;
+    font-size: .9rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; }
+  footer {
+    margin-top: auto;
+    padding: 18px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    color: var(--verde);
+    font-size: 1rem;
+  }
+</style>
+</head>
+<body>
+  <div class="ornament">✦ ✦ ✦</div>
+
+  <div class="photo-frame">
+    <img id="couplePhoto" src="couple-placeholder.svg" alt="Larisa și Cătălin">
+  </div>
+
+  <h1>Larisa <span class="amp">&amp;</span> Cătălin</h1>
+  <p class="subtitle">Ajută-ne să păstrăm fiecare clipă a acestei zile</p>
+
+  <div class="divider">❦</div>
+
+  <button class="upload-btn" id="uploadBtn">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    Încarcă amintirile tale
+  </button>
+  <input type="file" id="fileInput" accept="image/*,video/*" multiple>
+
+  <p class="hint">Poți alege mai multe poze sau clipuri din galeria telefonului.<br>Maxim 100 MB per fișier.</p>
+
+  <div class="progress-list" id="progressList"></div>
+
+  <div class="toast" id="toast"></div>
+
+  <footer>Cu drag, Larisa &amp; Cătălin ✦</footer>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const progressList = document.getElementById('progressList');
+const toast = document.getElementById('toast');
+const MAX_FILE = 100 * 1024 * 1024;
+
+// Poza mirilor din admin (dacă a fost setată) înlocuiește placeholder-ul
+fetch('/api/couple', { method: 'GET' }).then(res => {
+  if (res.ok) document.getElementById('couplePhoto').src = '/api/couple?v=' + Date.now();
+}).catch(() => {});
+
+document.getElementById('uploadBtn').addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', () => {
+  const files = Array.from(fileInput.files);
+  fileInput.value = '';
+  if (files.length) uploadAll(files);
+});
+
+async function uploadAll(files) {
+  let uploaded = 0;
+  for (const file of files) {
+    const item = createProgressItem(file.name);
+    if (file.size > MAX_FILE) {
+      markError(item, 'Peste 100 MB');
+      continue;
+    }
+    try {
+      await uploadFile(file, item);
+      uploaded++;
+    } catch (err) {
+      markError(item, err.message || 'Eroare');
+    }
+  }
+  if (uploaded > 0) {
+    showToast(uploaded === 1
+      ? 'Mulțumim! Amintirea ta a fost încărcată ♥'
+      : 'Mulțumim! ' + uploaded + ' amintiri au fost încărcate ♥');
+  }
+}
+
+function uploadFile(file, item) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload?name=' + encodeURIComponent(file.name));
+    xhr.setRequestHeader('content-type', file.type || 'application/octet-stream');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        item.querySelector('.fill').style.width = (e.loaded / e.total * 100) + '%';
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        item.classList.add('done');
+        item.querySelector('.status').textContent = '✓ Încărcat';
+        item.querySelector('.fill').style.width = '100%';
+        resolve();
+      } else {
+        let msg = 'Eroare la încărcare';
+        try { msg = JSON.parse(xhr.responseText).error || msg; } catch (e) {}
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Conexiune întreruptă — încearcă din nou'));
+    xhr.send(file);
+  });
+}
+
+function createProgressItem(name) {
+  const div = document.createElement('div');
+  div.className = 'progress-item';
+  div.innerHTML =
+    '<div class="name"><span>' + escapeHtml(name) + '</span><span class="status">Se încarcă…</span></div>' +
+    '<div class="track"><div class="fill"></div></div>';
+  progressList.prepend(div);
+  return div;
+}
+
+function markError(item, msg) {
+  item.classList.add('error');
+  item.querySelector('.status').textContent = '✗ ' + msg;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let toastTimer;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 4500);
+}
+</script>
+</body>
+</html>

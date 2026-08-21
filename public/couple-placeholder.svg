@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dce8dd"/>
+      <stop offset="100%" stop-color="#b7ccb9"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="500" fill="url(#bg)"/>
+  <g fill="none" stroke="#6b8f71" stroke-width="2" opacity="0.7">
+    <path d="M200 210 c-30-45 -95-30 -95 15 c0 40 55 70 95 100 c40-30 95-60 95-100 c0-45 -65-60 -95-15 z"/>
+  </g>
+  <g fill="#4a6b50" opacity="0.85">
+    <circle cx="120" cy="120" r="3"/>
+    <circle cx="280" cy="120" r="3"/>
+    <circle cx="90" cy="400" r="3"/>
+    <circle cx="310" cy="400" r="3"/>
+  </g>
+  <text x="200" y="395" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="26" fill="#4a6b50">Larisa &amp; Cătălin</text>
+  <text x="200" y="428" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="15" fill="#6b8f71">poza va apărea aici</text>
+</svg>

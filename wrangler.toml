@@ -1,0 +1,22 @@
+name = "nunta-larisa-catalin"
+main = "src/index.js"
+compatibility_date = "2025-08-01"
+
+# Fișierele statice (pagina principală, placeholder-ul pozei)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Bucket-ul R2 unde se salvează pozele și clipurile
+# Creează-l înainte de deploy:  npx wrangler r2 bucket create nunta-larisa-catalin
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "nunta-larisa-catalin"
+
+[vars]
+ADMIN_USER = "admin"
+ADMIN_PASS = "casadepiatra"
+# Limita totală de stocare: 4 GB
+MAX_TOTAL_BYTES = "4294967296"
+# Limita per fișier: 100 MB (limita de request a Cloudflare Workers)
+MAX_FILE_BYTES = "104857600"
