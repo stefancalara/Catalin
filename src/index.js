@@ -210,8 +210,8 @@ const ADMIN_HTML = `<!doctype html>
 <title>Admin — Nunta Larisa și Cătălin</title>
 <style>
   :root {
-    --verde: #5f7d5a;
-    --verde-inchis: #46603f;
+    --verde: #0f6e57;
+    --verde-inchis: #0a4a3b;
     --crem: #faf7f2;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
