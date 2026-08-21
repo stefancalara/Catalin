@@ -2,20 +2,20 @@
 
 Aplicație web pentru invitați: încarcă poze și clipuri din galeria telefonului
 (iPhone și Android) direct în cloud. Construită pentru **Cloudflare Workers + R2**,
-cu o limită totală de stocare de **4 GB**.
+cu o limită totală de stocare de **10 GB**.
 
 ## Funcționalități
 
 - **Pagina principală** (`/`) — poza mirilor, titlul „Larisa & Cătălin" în nuanțe
   de verde și butonul **„Încarcă amintirile tale"**, care deschide galeria
-  telefonului (poze + clipuri, selecție multiplă, bară de progres per fișier).
+  telefonului (poze + videoclipuri, selecție multiplă, bară de progres per fișier).
 - **Panou admin** (`/admin`) — protejat cu utilizator `admin` și parola
   `casadepiatra`. De aici poți:
   - vedea toate amintirile încărcate (grilă cu poze/clipuri),
   - descărca sau șterge orice fișier,
-  - vedea spațiul folosit din cei 4 GB,
+  - vedea spațiul folosit din cei 10 GB,
   - **încărca poza mirilor** care apare pe pagina principală.
-- Limite: 4 GB în total, 100 MB per fișier (limita de request Cloudflare Workers).
+- Limite: 10 GB în total, 100 MB per fișier (limita de request Cloudflare Workers).
 
 ## Cum îl pui pe Cloudflare
 
@@ -51,7 +51,7 @@ Totul e în `wrangler.toml`:
 |-------------------|-------------------|------------------------------|
 | `ADMIN_USER`      | `admin`           | Utilizator panou admin       |
 | `ADMIN_PASS`      | `casadepiatra`    | Parola panoului admin        |
-| `MAX_TOTAL_BYTES` | `4294967296`      | Limita totală (4 GB)         |
+| `MAX_TOTAL_BYTES` | `10737418240`     | Limita totală (10 GB)         |
 | `MAX_FILE_BYTES`  | `104857600`       | Limita per fișier (100 MB)   |
 
 > Recomandare: după nuntă, poți descărca tot conținutul bucket-ului cu

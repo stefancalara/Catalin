@@ -58,7 +58,7 @@ async function handleUpload(request, env, url) {
 
   const used = await totalUsage(env);
   if (used + size > maxTotal(env)) {
-    return json({ error: 'Spațiul de stocare (4 GB) este plin. Mulțumim pentru toate amintirile!' }, 507);
+    return json({ error: 'Spațiul de stocare (10 GB) este plin. Mulțumim pentru toate amintirile!' }, 507);
   }
 
   const original = sanitizeName(url.searchParams.get('name') || 'amintire');
@@ -190,7 +190,7 @@ async function totalUsage(env) {
 }
 
 function maxTotal(env) {
-  return Number(env.MAX_TOTAL_BYTES || 4294967296);
+  return Number(env.MAX_TOTAL_BYTES || 10737418240);
 }
 
 function json(data, status = 200) {
