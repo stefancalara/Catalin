@@ -48,6 +48,7 @@
   .sheet {
     width: 210mm;
     height: 297mm;
+    page: portrait;
     background: var(--hartie);
     position: relative;
     margin: 24px auto;
@@ -55,7 +56,14 @@
     overflow: hidden;
   }
 
-  /* Grila: pe planșa 1 — 4 panouri (2×2); pe planșa 2 — 2 panouri (1×2) */
+  /* Planșa 3: A4 pe orizontal, îndoită pe verticală → 2 fețe A5 în picioare */
+  .sheet.landscape {
+    width: 297mm;
+    height: 210mm;
+    page: landscape;
+  }
+
+  /* Grila: planșa 1 — 4 panouri (2×2); planșa 2 — 2 panouri (1×2); planșa 3 — 2 panouri (2×1) */
   .grid {
     position: absolute;
     inset: 0;
@@ -64,6 +72,7 @@
   }
   .grid.four { grid-template-columns: 1fr 1fr; }
   .grid.two { grid-template-columns: 1fr; }
+  .grid.side { grid-template-rows: 1fr; grid-template-columns: 1fr 1fr; }
 
   .panel {
     display: flex;
@@ -112,19 +121,16 @@
     line-height: 1.5;
     max-width: 62mm;
   }
-  .card-inner .url {
-    font-size: 7pt;
-    color: var(--verde-inchis);
-    letter-spacing: .04em;
-    word-break: break-all;
-    padding: 0 2mm;
-  }
   .grid.four .qr svg { width: 44mm; height: 44mm; }
   .grid.two .qr svg { width: 54mm; height: 54mm; }
   .grid.two .card-inner h2 { font-size: 26pt; }
   .grid.two .card-inner .invite { font-size: 15pt; }
   .grid.two .card-inner .scan { font-size: 8.5pt; max-width: 105mm; }
-  .grid.two .card-inner .url { font-size: 8pt; }
+  .grid.side .qr svg { width: 64mm; height: 64mm; }
+  .grid.side .card-inner { gap: 6mm; }
+  .grid.side .card-inner h2 { font-size: 28pt; }
+  .grid.side .card-inner .invite { font-size: 16pt; }
+  .grid.side .card-inner .scan { font-size: 9pt; max-width: 95mm; }
 
   /* Linii de ghidaj: tăiere (verticală, planșa 1) și îndoire (orizontală) */
   .cutline {
@@ -157,6 +163,18 @@
     background: var(--hartie);
     padding: 0 1mm;
   }
+  .foldline.vertical {
+    top: 0; bottom: 0; left: 50%; right: auto;
+    border-top: none;
+    border-left: .4pt dotted #c5bfb2;
+  }
+  .foldline.vertical span {
+    right: auto;
+    left: -2.2mm;
+    top: 2mm;
+    writing-mode: vertical-rl;
+    padding: 1mm 0;
+  }
   .sheet-label {
     position: absolute;
     bottom: 1.5mm;
@@ -172,7 +190,9 @@
     .sheet { margin: 0; box-shadow: none; page-break-after: always; }
     .sheet:last-child { page-break-after: auto; }
   }
-  @page { size: A4 portrait; margin: 0; }
+  @page { size: A4; margin: 0; }
+  @page portrait { size: A4 portrait; }
+  @page landscape { size: A4 landscape; }
 </style>
 </head>
 <body>
@@ -181,7 +201,8 @@
   <strong>Cartonașe cu cod QR pentru mese</strong><br>
   Planșa 1: taie pe linia verticală din mijloc, apoi îndoaie fiecare parte pe linia punctată — obții 2 cartonașe cu QR pe ambele fețe.<br>
   Planșa 2: doar îndoaie pe linia punctată — un cartonaș mare cu QR pe ambele fețe. Jumătățile de sus sunt rotite intenționat, ca la îndoit totul să stea drept.<br>
-  Printează pe hârtie A4 cartonată, la scară 100% (fără „fit to page").
+  Planșa 3: A4 pe orizontal, îndoită pe verticală la mijloc — un cartonaș cu două fețe A5 care stă în picioare ca o carte deschisă.<br>
+  Printează pe hârtie A4 cartonată, la scară 100% (fără „fit to page"); la planșa 3 alege orientarea „Landscape" dacă browserul nu o setează singur.
   <br><button onclick="window.print()">🖨 Printează</button>
 </div>
 
@@ -208,9 +229,18 @@
   <div class="sheet-label">Planșa 2 — doar îndoaie la jumătate</div>
 </div>
 
+<!-- Planșa 3: A4 pe orizontal, 2 coduri QR → 1 cartonaș îndoit pe verticală (stă în V) -->
+<div class="sheet landscape">
+  <div class="grid side">
+    <div class="panel"></div>
+    <div class="panel"></div>
+  </div>
+  <div class="foldline vertical"><span>îndoaie aici</span></div>
+  <div class="sheet-label">Planșa 3 — A4 pe orizontal, îndoaie pe verticală la mijloc</div>
+</div>
+
 <script>
 const siteUrl = location.origin + '/';
-const siteHost = location.host || 'adresa site-ului';
 
 const qr = qrcode(0, 'M');
 qr.addData(siteUrl);
@@ -227,7 +257,6 @@ const cardHtml = `
     <div class="invite">Împarte cu noi<br>amintirile tale</div>
     <div class="qr">${qrSvg}</div>
     <div class="scan">Scanează codul cu camera telefonului și încarcă pozele și videoclipurile tale de la nunta noastră</div>
-    <div class="url">${siteHost}</div>
   </div>`;
 
 document.querySelectorAll('.panel').forEach(p => { p.innerHTML = cardHtml; });
