@@ -16,6 +16,23 @@
 
 const COUPLE_KEY = '_couple';
 
+// Tipul MIME după extensie — galeriile de telefon trimit deseori
+// "application/octet-stream" sau nimic, mai ales pentru videoclipuri.
+const EXT_TYPES = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+  webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', avif: 'image/avif',
+  bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', dng: 'image/x-adobe-dng',
+  mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
+  mkv: 'video/x-matroska', avi: 'video/x-msvideo', '3gp': 'video/3gpp', ts: 'video/mp2t',
+  mts: 'video/mp2t', m2ts: 'video/mp2t', mpg: 'video/mpeg', mpeg: 'video/mpeg',
+  wmv: 'video/x-ms-wmv',
+};
+
+function guessType(name, fallback) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  return EXT_TYPES[ext] || fallback || 'application/octet-stream';
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -26,7 +43,7 @@ export default {
         return await handleAdmin(request, env, url);
       }
       if (path === '/api/couple' && request.method === 'GET') {
-        return await serveObject(env, COUPLE_KEY);
+        return await serveObject(env, COUPLE_KEY, false, request);
       }
       if (path === '/api/usage' && request.method === 'GET') {
         const used = await totalUsage(env);
@@ -64,10 +81,13 @@ async function handleUpload(request, env, url) {
   const original = sanitizeName(url.searchParams.get('name') || 'amintire');
   const key = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${original}`;
 
+  let contentType = request.headers.get('content-type') || '';
+  if (!contentType || contentType === 'application/octet-stream') {
+    contentType = guessType(original);
+  }
+
   await env.PHOTOS.put(key, request.body, {
-    httpMetadata: {
-      contentType: request.headers.get('content-type') || 'application/octet-stream',
-    },
+    httpMetadata: { contentType },
   });
 
   return json({ ok: true, key });
@@ -119,7 +139,7 @@ async function handleAdmin(request, env, url) {
     const key = decodeURIComponent(path.slice('/admin/file/'.length));
     if (!key || key === COUPLE_KEY) return json({ error: 'Cheie invalidă.' }, 400);
     if (request.method === 'GET') {
-      return await serveObject(env, key, url.searchParams.has('download'));
+      return await serveObject(env, key, url.searchParams.has('download'), request);
     }
     if (request.method === 'DELETE') {
       await env.PHOTOS.delete(key);
@@ -163,17 +183,40 @@ function timingSafeEqual(a, b) {
 
 /* ---------- Utilitare ---------- */
 
-async function serveObject(env, key, forceDownload = false) {
-  const obj = await env.PHOTOS.get(key);
+async function serveObject(env, key, forceDownload = false, request = null) {
+  // Suport pentru cereri Range — obligatoriu ca video-urile să poată fi
+  // redate (mai ales pe iPhone/Safari) și derulate.
+  const rangeHeader = request && request.headers.get('range');
+  let obj = null;
+  if (rangeHeader && !forceDownload) {
+    try { obj = await env.PHOTOS.get(key, { range: request.headers }); } catch (e) { obj = null; }
+  }
+  if (!obj) obj = await env.PHOTOS.get(key);
   if (!obj) return json({ error: 'Nu există.' }, 404);
+
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
+  // Corectăm tipul pentru fișierele vechi salvate fără MIME corect
+  const storedType = headers.get('content-type');
+  if (!storedType || storedType === 'application/octet-stream') {
+    headers.set('content-type', guessType(key));
+  }
   headers.set('etag', obj.httpEtag);
+  headers.set('accept-ranges', 'bytes');
   headers.set('cache-control', key === COUPLE_KEY ? 'public, max-age=300' : 'private, max-age=3600');
   if (forceDownload) {
     headers.set('content-disposition', `attachment; filename="${key.replace(/"/g, '')}"`);
   }
-  return new Response(obj.body, { headers });
+
+  let status = 200;
+  if (obj.range && rangeHeader && !forceDownload) {
+    const offset = obj.range.offset ?? (obj.range.suffix != null ? obj.size - obj.range.suffix : 0);
+    const length = obj.range.length ?? (obj.range.suffix != null ? obj.range.suffix : obj.size - offset);
+    headers.set('content-range', `bytes ${offset}-${offset + length - 1}/${obj.size}`);
+    headers.set('content-length', String(length));
+    status = 206;
+  }
+  return new Response(obj.body, { status, headers });
 }
 
 async function totalUsage(env) {
@@ -229,6 +272,9 @@ const ADMIN_HTML = `<!doctype html>
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
   .card { background: #fff; border: 1px solid #e2ddd2; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
   .card .thumb { width: 100%; aspect-ratio: 1; object-fit: cover; background: #eee; display: block; }
+  .card .thumb.ph { display: flex; align-items: center; justify-content: center; font-size: 2.6rem; color: #aaa; }
+  .card .badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.55); color: #fff; font-size: .7rem; padding: 3px 8px; border-radius: 6px; }
+  .card .thumb-wrap { position: relative; }
   .card .meta { padding: 8px 10px; font-size: .75rem; color: #666; word-break: break-all; }
   .card .actions { display: flex; border-top: 1px solid #eee; }
   .card .actions a, .card .actions button { flex: 1; padding: 8px; text-align: center; font-size: .8rem; border: none; background: none; cursor: pointer; color: var(--verde-inchis); text-decoration: none; font-family: inherit; }
@@ -277,16 +323,35 @@ async function load() {
     const fileUrl = '/admin/file/' + encodeURIComponent(item.key);
     const card = document.createElement('div');
     card.className = 'card';
-    const isVideo = item.contentType.startsWith('video/');
+    const isVideo = item.contentType.startsWith('video/') ||
+      /\\.(mp4|m4v|mov|webm|mkv|avi|3gp|ts|mts|m2ts|mpg|mpeg|wmv)$/i.test(item.key);
     card.innerHTML =
       (isVideo
-        ? '<video class="thumb" src="' + fileUrl + '" preload="metadata" muted playsinline></video>'
+        ? '<div class="thumb-wrap"><video class="thumb" src="' + fileUrl + '#t=0.1" preload="metadata" controls muted playsinline></video><span class="badge">🎬 video</span></div>'
         : '<img class="thumb" src="' + fileUrl + '" loading="lazy" alt="">') +
       '<div class="meta">' + item.key + '<br>' + fmt(item.size) + ' · ' + new Date(item.uploaded).toLocaleString('ro-RO') + '</div>' +
       '<div class="actions">' +
         '<a href="' + fileUrl + '?download" download>Descarcă</a>' +
         '<button class="del">Șterge</button>' +
       '</div>';
+    // Dacă imaginea nu se poate afișa (ex. video cu nume de poză sau HEIC),
+    // încercăm ca video, apoi arătăm un simbol generic.
+    const img = card.querySelector('img.thumb');
+    if (img) {
+      img.onerror = () => {
+        const v = document.createElement('video');
+        v.className = 'thumb';
+        v.src = fileUrl + '#t=0.1';
+        v.controls = true; v.muted = true; v.playsInline = true; v.preload = 'metadata';
+        v.onerror = () => {
+          const d = document.createElement('div');
+          d.className = 'thumb ph';
+          d.textContent = '🖼️';
+          v.replaceWith(d);
+        };
+        img.replaceWith(v);
+      };
+    }
     card.querySelector('.del').onclick = async () => {
       if (!confirm('Sigur ștergi acest fișier?')) return;
       await fetch(fileUrl, { method: 'DELETE' });
