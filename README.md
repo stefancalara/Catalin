@@ -9,6 +9,12 @@ cu o limită totală de stocare de **10 GB**.
 - **Pagina principală** (`/`) — poza mirilor, titlul „Larisa & Cătălin" în nuanțe
   de verde și butonul **„Încarcă amintirile tale"**, care deschide galeria
   telefonului (poze + videoclipuri, selecție multiplă, bară de progres per fișier).
+- **Cartonașe printabile** (`/print`) — două planșe A4 cu coduri QR către
+  pagina principală, gata de tipărit pe hârtie cartonată: planșa 1 (4 coduri —
+  se taie pe verticală și se îndoaie → 2 cartonașe de masă cu QR pe ambele
+  fețe) și planșa 2 (2 coduri — doar se îndoaie → un cartonaș mare). Jumătățile
+  de sus sunt rotite 180°, ca totul să stea drept după îndoire. Codul QR se
+  generează automat cu adresa la care e găzduită aplicația.
 - **Panou admin** (`/admin`) — protejat cu utilizator `admin` și parola
   `casadepiatra`. De aici poți:
   - vedea toate amintirile încărcate (grilă cu poze/clipuri),

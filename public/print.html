@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartonașe QR — Nunta Larisa și Cătălin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="qrcode.js"></script>
+<style>
+  :root {
+    --verde: #0f6e57;
+    --verde-inchis: #0a4a3b;
+    --auriu: #b39a6a;
+    --hartie: #fdfcf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #e8e6e0;
+    font-family: 'Montserrat', Arial, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Bara de instrucțiuni — doar pe ecran */
+  .toolbar {
+    background: var(--verde-inchis);
+    color: #fff;
+    padding: 16px 20px;
+    text-align: center;
+    font-size: .9rem;
+    line-height: 1.6;
+  }
+  .toolbar button {
+    display: inline-block;
+    margin-top: 10px;
+    background: var(--auriu);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 34px;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .sheet {
+    width: 210mm;
+    height: 297mm;
+    background: var(--hartie);
+    position: relative;
+    margin: 24px auto;
+    box-shadow: 0 4px 24px rgba(0,0,0,.2);
+    overflow: hidden;
+  }
+
+  /* Grila: pe planșa 1 — 4 panouri (2×2); pe planșa 2 — 2 panouri (1×2) */
+  .grid {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+  }
+  .grid.four { grid-template-columns: 1fr 1fr; }
+  .grid.two { grid-template-columns: 1fr; }
+
+  .panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10mm;
+  }
+  /* Jumătatea de SUS e rotită 180° — la îndoit, ambele fețe stau drept */
+  .panel.flip { transform: rotate(180deg); }
+
+  .card-inner {
+    width: 100%;
+    height: 100%;
+    border: 1.2pt solid var(--auriu);
+    outline: .5pt solid var(--auriu);
+    outline-offset: 1.6mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4mm;
+    text-align: center;
+    padding: 6mm;
+  }
+  .card-inner .stars { color: var(--auriu); letter-spacing: .45em; font-size: 9pt; }
+  .card-inner h2 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 500;
+    color: var(--verde-inchis);
+    font-size: 21pt;
+    line-height: 1.1;
+  }
+  .card-inner h2 .amp { font-style: italic; color: var(--verde); }
+  .card-inner .invite {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    color: var(--verde);
+    font-size: 14pt;
+    line-height: 1.2;
+  }
+  .qr { line-height: 0; }
+  .qr svg { display: block; }
+  .card-inner .scan {
+    font-size: 7.5pt;
+    color: #6b7069;
+    line-height: 1.5;
+    max-width: 62mm;
+  }
+  .card-inner .url {
+    font-size: 7pt;
+    color: var(--verde-inchis);
+    letter-spacing: .04em;
+    word-break: break-all;
+    padding: 0 2mm;
+  }
+  .grid.four .qr svg { width: 44mm; height: 44mm; }
+  .grid.two .qr svg { width: 54mm; height: 54mm; }
+  .grid.two .card-inner h2 { font-size: 26pt; }
+  .grid.two .card-inner .invite { font-size: 15pt; }
+  .grid.two .card-inner .scan { font-size: 8.5pt; max-width: 105mm; }
+  .grid.two .card-inner .url { font-size: 8pt; }
+
+  /* Linii de ghidaj: tăiere (verticală, planșa 1) și îndoire (orizontală) */
+  .cutline {
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 50%;
+    border-left: .4pt dashed #b3ada0;
+  }
+  .cutline::before {
+    content: '✂';
+    position: absolute;
+    top: 2mm;
+    left: -2.2mm;
+    font-size: 9pt;
+    color: #b3ada0;
+    background: var(--hartie);
+  }
+  .foldline {
+    position: absolute;
+    left: 0; right: 0;
+    top: 50%;
+    border-top: .4pt dotted #c5bfb2;
+  }
+  .foldline span {
+    position: absolute;
+    right: 2mm;
+    top: -3.2mm;
+    font-size: 5.5pt;
+    color: #b3ada0;
+    background: var(--hartie);
+    padding: 0 1mm;
+  }
+  .sheet-label {
+    position: absolute;
+    bottom: 1.5mm;
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 5.5pt;
+    color: #c5bfb2;
+  }
+
+  @media print {
+    body { background: none; }
+    .toolbar { display: none; }
+    .sheet { margin: 0; box-shadow: none; page-break-after: always; }
+    .sheet:last-child { page-break-after: auto; }
+  }
+  @page { size: A4 portrait; margin: 0; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <strong>Cartonașe cu cod QR pentru mese</strong><br>
+  Planșa 1: taie pe linia verticală din mijloc, apoi îndoaie fiecare parte pe linia punctată — obții 2 cartonașe cu QR pe ambele fețe.<br>
+  Planșa 2: doar îndoaie pe linia punctată — un cartonaș mare cu QR pe ambele fețe. Jumătățile de sus sunt rotite intenționat, ca la îndoit totul să stea drept.<br>
+  Printează pe hârtie A4 cartonată, la scară 100% (fără „fit to page").
+  <br><button onclick="window.print()">🖨 Printează</button>
+</div>
+
+<!-- Planșa 1: 4 coduri QR → 2 cartonașe pliate -->
+<div class="sheet">
+  <div class="grid four">
+    <div class="panel flip"></div>
+    <div class="panel flip"></div>
+    <div class="panel"></div>
+    <div class="panel"></div>
+  </div>
+  <div class="foldline"><span>îndoaie aici</span></div>
+  <div class="cutline"></div>
+  <div class="sheet-label">Planșa 1 — taie pe verticală, apoi îndoaie fiecare jumătate</div>
+</div>
+
+<!-- Planșa 2: 2 coduri QR → 1 cartonaș mare pliat -->
+<div class="sheet">
+  <div class="grid two">
+    <div class="panel flip"></div>
+    <div class="panel"></div>
+  </div>
+  <div class="foldline"><span>îndoaie aici</span></div>
+  <div class="sheet-label">Planșa 2 — doar îndoaie la jumătate</div>
+</div>
+
+<script>
+const siteUrl = location.origin + '/';
+const siteHost = location.host || 'adresa site-ului';
+
+const qr = qrcode(0, 'M');
+qr.addData(siteUrl);
+qr.make();
+// SVG vectorial — rămâne perfect clar la orice mărime de print
+const qrSvg = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
+  .replace(/black/g, '#0a4a3b')
+  .replace(/white/g, '#fdfcf8');
+
+const cardHtml = `
+  <div class="card-inner">
+    <div class="stars">✦ ✦ ✦</div>
+    <h2>Larisa <span class="amp">&amp;</span> Cătălin</h2>
+    <div class="invite">Împarte cu noi<br>amintirile tale</div>
+    <div class="qr">${qrSvg}</div>
+    <div class="scan">Scanează codul cu camera telefonului și încarcă pozele și videoclipurile tale de la nunta noastră</div>
+    <div class="url">${siteHost}</div>
+  </div>`;
+
+document.querySelectorAll('.panel').forEach(p => { p.innerHTML = cardHtml; });
+</script>
+</body>
+</html>
