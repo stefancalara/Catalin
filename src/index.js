@@ -141,7 +141,8 @@ async function handleEvent(request, env, url, slug, rest, base) {
     const qrUrl = env.ROOT_EVENT === slug && !(env.PLATFORM_HOST && url.hostname === env.PLATFORM_HOST)
       ? url.origin + '/'
       : url.origin + publicBase;
-    return html(renderPrintPage(ev, { qrUrl }));
+    const brandHost = (env.PLATFORM_URL || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    return html(renderPrintPage(ev, { qrUrl, brand: { name: env.BRAND_NAME || '', host: brandHost } }));
   }
 
   // Galerie / slideshow: publice dacă evenimentul permite, altfel doar cu cheia din admin

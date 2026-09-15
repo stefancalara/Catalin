@@ -700,6 +700,9 @@ export function renderPrintPage(ev, opts) {
   const plainTitle = ev.name2 ? `${ev.name1} & ${ev.name2}` : ev.name1;
   const qrDark = isDark(pal.c1d) ? pal.c1d : '#1a1a1a';
   const paper = isDark(pal.bg) ? '#ffffff' : pal.bg;
+  // Pe planul demo (gratuit), cartonașele poartă semnătura platformei
+  const brand = opts.brand || {};
+  const madeBy = ev.plan !== 'paid' && brand.name ? `<div class="madeby">realizat cu ${escapeHtml(brand.name)}${brand.host ? ' · ' + escapeHtml(brand.host) : ''}</div>` : '';
 
   return `<!doctype html>
 <html lang="ro">
@@ -736,6 +739,8 @@ ${cssVars(tpl, pal)}
   .qr { line-height: 0; }
   .qr svg { display: block; }
   .card-inner .scan { font-size: 7.5pt; color: #6b7069; line-height: 1.5; max-width: 62mm; }
+  .card-inner .madeby { font-size: 6pt; color: #9a9a9a; letter-spacing: .08em; text-transform: uppercase; margin-top: 1mm; }
+  .grid.six .card-inner .madeby { font-size: 5pt; }
   .grid.four .qr svg { width: 44mm; height: 44mm; }
   .grid.six .qr svg { width: 36mm; height: 36mm; }
   .grid.six .card-inner h2 { font-size: 17pt; }
@@ -793,6 +798,7 @@ const cardHtml = '<div class="card-inner">' +
   ${jsonForScript(`<div class="invite">${escapeHtml(t.cardInvite || '')}</div>`)} +
   '<div class="qr">' + qrSvg + '</div>' +
   ${jsonForScript(`<div class="scan">${escapeHtml(t.cardScan || '')}</div>`)} +
+  ${jsonForScript(madeBy)} +
   '</div>';
 document.querySelectorAll('.panel').forEach(p => { p.innerHTML = cardHtml; });
 
