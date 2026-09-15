@@ -21,6 +21,10 @@ cu o limită totală de stocare de **10 GB**.
   `casadepiatra`. De aici poți:
   - vedea toate amintirile încărcate (grilă cu poze/clipuri),
   - descărca sau șterge orice fișier,
+  - **descărca tot** dintr-o dată, ca arhivă ZIP (butonul „Descarcă tot (ZIP)").
+    În Chrome/Edge arhiva se scrie direct pe disc, oricât de mare ar fi; în
+    Safari/Firefox se construiește în memorie și, peste 1 GB, se împarte în
+    părți de câte 1 GB,
   - vedea spațiul folosit din cei 10 GB,
   - **încărca poza mirilor** care apare pe pagina principală.
 - Limite: 10 GB în total, 100 MB per fișier (limita de request Cloudflare Workers).
@@ -62,8 +66,10 @@ Totul e în `wrangler.toml`:
 | `MAX_TOTAL_BYTES` | `10737418240`     | Limita totală (10 GB)         |
 | `MAX_FILE_BYTES`  | `104857600`       | Limita per fișier (100 MB)   |
 
-> Recomandare: după nuntă, poți descărca tot conținutul bucket-ului cu
-> `rclone` sau din dashboard-ul Cloudflare R2, apoi șterge bucket-ul.
+> Recomandare: după nuntă, descarcă tot din `/admin` cu butonul
+> „Descarcă tot (ZIP)" (ideal din Chrome/Edge, pe laptop), apoi șterge bucket-ul.
+> Alternativ, poți lua conținutul bucket-ului cu `rclone` sau din dashboard-ul
+> Cloudflare R2.
 
 ## Structura proiectului
 

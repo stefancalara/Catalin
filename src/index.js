@@ -282,6 +282,16 @@ const ADMIN_HTML = `<!doctype html>
   .card .actions a:hover, .card .actions button:hover { background: #f4f1ea; }
   .empty { text-align: center; color: #888; padding: 40px 0; }
   .msg { margin: 10px 0; color: var(--verde-inchis); }
+  .btn { background: var(--verde); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: .95rem; }
+  .btn:hover { background: var(--verde-inchis); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.secondary { background: #fff; color: #a33; border: 1px solid #e2ddd2; }
+  .zip-panel { background: #fff; border: 1px solid #e2ddd2; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+  .zip-panel h2 { font-size: 1.1rem; color: var(--verde-inchis); margin-bottom: 10px; }
+  .zip-panel .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .zip-panel .note { font-size: .85rem; color: #777; margin-top: 8px; }
+  .zip-panel .links { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .zip-panel .links a { color: var(--verde-inchis); }
 </style>
 </head>
 <body>
@@ -291,6 +301,18 @@ const ADMIN_HTML = `<!doctype html>
     <span id="count">…</span>
     <div class="bar"><div id="barfill"></div></div>
     <span id="usage">…</span>
+    <button class="btn" id="zipBtn">⬇ Descarcă tot (ZIP)</button>
+  </div>
+
+  <div class="zip-panel" id="zipPanel" hidden>
+    <h2>Descărcare totală</h2>
+    <div class="row">
+      <div class="bar"><div id="zipFill"></div></div>
+      <span id="zipStatus">…</span>
+      <button class="btn secondary" id="zipCancel">Anulează</button>
+    </div>
+    <div class="note" id="zipNote"></div>
+    <div class="links" id="zipLinks"></div>
   </div>
 
   <div class="couple-box">
@@ -310,9 +332,12 @@ function fmt(b) {
   return Math.round(b / 1024) + ' KB';
 }
 
+let currentItems = [];
+
 async function load() {
   const res = await fetch('/admin/list');
   const data = await res.json();
+  currentItems = data.items;
   document.getElementById('count').textContent = data.items.length + ' fișiere';
   document.getElementById('usage').textContent = fmt(data.used) + ' / ' + fmt(data.max);
   document.getElementById('barfill').style.width = Math.min(100, data.used / data.max * 100) + '%';
@@ -360,6 +385,251 @@ async function load() {
     grid.appendChild(card);
   }
 }
+
+/* ---------- Descărcare totală ca ZIP ---------- */
+
+// ZIP fără compresie ("store") — pozele și clipurile sunt deja comprimate,
+// iar așa nu pierdem timp. Suportă ZIP64 pentru arhive peste 4 GB.
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function dosDateTime(d) {
+  const y = Math.max(1980, d.getFullYear());
+  return {
+    dosTime: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+    dosDate: ((y - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+  };
+}
+
+class ZipWriter {
+  constructor(sink) { this.sink = sink; this.offset = 0; this.entries = []; }
+
+  async write(bytes) { await this.sink(bytes); this.offset += bytes.byteLength; }
+
+  async addFile(name, data, date) {
+    const nameBytes = new TextEncoder().encode(name);
+    const crc = crc32(data);
+    const size = data.byteLength;
+    const { dosTime, dosDate } = dosDateTime(date);
+    const h = new DataView(new ArrayBuffer(30 + nameBytes.length));
+    h.setUint32(0, 0x04034b50, true);   // semnătură antet local
+    h.setUint16(4, 20, true);           // versiune necesară
+    h.setUint16(6, 0x0800, true);       // nume în UTF-8
+    h.setUint16(8, 0, true);            // metoda: store
+    h.setUint16(10, dosTime, true);
+    h.setUint16(12, dosDate, true);
+    h.setUint32(14, crc, true);
+    h.setUint32(18, size, true);
+    h.setUint32(22, size, true);
+    h.setUint16(26, nameBytes.length, true);
+    h.setUint16(28, 0, true);
+    new Uint8Array(h.buffer).set(nameBytes, 30);
+    const offset = this.offset;
+    await this.write(new Uint8Array(h.buffer));
+    await this.write(data);
+    this.entries.push({ nameBytes, crc, size, dosTime, dosDate, offset });
+  }
+
+  async finish() {
+    const cdStart = this.offset;
+    for (const e of this.entries) {
+      const zip64 = e.offset >= 0xFFFFFFFF;
+      const extraLen = zip64 ? 12 : 0;
+      const c = new DataView(new ArrayBuffer(46 + e.nameBytes.length + extraLen));
+      c.setUint32(0, 0x02014b50, true);
+      c.setUint16(4, zip64 ? 45 : 20, true);
+      c.setUint16(6, zip64 ? 45 : 20, true);
+      c.setUint16(8, 0x0800, true);
+      c.setUint16(10, 0, true);
+      c.setUint16(12, e.dosTime, true);
+      c.setUint16(14, e.dosDate, true);
+      c.setUint32(16, e.crc, true);
+      c.setUint32(20, e.size, true);
+      c.setUint32(24, e.size, true);
+      c.setUint16(28, e.nameBytes.length, true);
+      c.setUint16(30, extraLen, true);
+      c.setUint16(32, 0, true);
+      c.setUint16(34, 0, true);
+      c.setUint16(36, 0, true);
+      c.setUint32(38, 0, true);
+      c.setUint32(42, zip64 ? 0xFFFFFFFF : e.offset, true);
+      const u8 = new Uint8Array(c.buffer);
+      u8.set(e.nameBytes, 46);
+      if (zip64) {
+        const p = 46 + e.nameBytes.length;
+        c.setUint16(p, 0x0001, true);
+        c.setUint16(p + 2, 8, true);
+        c.setBigUint64(p + 4, BigInt(e.offset), true);
+      }
+      await this.write(u8);
+    }
+    const cdSize = this.offset - cdStart;
+    const count = this.entries.length;
+    if (cdStart >= 0xFFFFFFFF || cdSize >= 0xFFFFFFFF || count >= 0xFFFF) {
+      const z = new DataView(new ArrayBuffer(76));
+      z.setUint32(0, 0x06064b50, true);   // ZIP64 end of central directory
+      z.setBigUint64(4, BigInt(44), true);
+      z.setUint16(12, 45, true);
+      z.setUint16(14, 45, true);
+      z.setUint32(16, 0, true);
+      z.setUint32(20, 0, true);
+      z.setBigUint64(24, BigInt(count), true);
+      z.setBigUint64(32, BigInt(count), true);
+      z.setBigUint64(40, BigInt(cdSize), true);
+      z.setBigUint64(48, BigInt(cdStart), true);
+      z.setUint32(56, 0x07064b50, true);  // ZIP64 locator
+      z.setUint32(60, 0, true);
+      z.setBigUint64(64, BigInt(this.offset), true);
+      z.setUint32(72, 1, true);
+      await this.write(new Uint8Array(z.buffer));
+    }
+    const e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true);
+    e.setUint16(4, 0, true);
+    e.setUint16(6, 0, true);
+    e.setUint16(8, Math.min(count, 0xFFFF), true);
+    e.setUint16(10, Math.min(count, 0xFFFF), true);
+    e.setUint32(12, Math.min(cdSize, 0xFFFFFFFF), true);
+    e.setUint32(16, Math.min(cdStart, 0xFFFFFFFF), true);
+    e.setUint16(20, 0, true);
+    await this.write(new Uint8Array(e.buffer));
+  }
+}
+
+async function fetchBytes(url, signal) {
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return new Uint8Array(await res.arrayBuffer());
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      lastErr = err;
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
+}
+
+// Când browserul nu poate scrie direct pe disc (Safari, Firefox), arhiva se
+// construiește în memorie și se împarte în bucăți de cel mult 1 GB.
+const PART_LIMIT = 1024 * 1024 * 1024;
+let zipAbort = null;
+
+async function downloadAll() {
+  const btn = document.getElementById('zipBtn');
+  const status = document.getElementById('zipStatus');
+  const fill = document.getElementById('zipFill');
+  const note = document.getElementById('zipNote');
+  const links = document.getElementById('zipLinks');
+
+  if (!currentItems.length) { alert('Nu există nicio amintire de descărcat.'); return; }
+
+  // Dialogul de salvare trebuie deschis direct din click (înainte de orice await).
+  let handlePromise = null;
+  if (window.showSaveFilePicker) {
+    handlePromise = window.showSaveFilePicker({
+      suggestedName: 'amintiri-nunta.zip',
+      types: [{ description: 'Arhivă ZIP', accept: { 'application/zip': ['.zip'] } }],
+    });
+  }
+
+  const controller = new AbortController();
+  zipAbort = controller;
+  btn.disabled = true;
+  document.getElementById('zipPanel').hidden = false;
+  links.innerHTML = '';
+  note.textContent = '';
+  fill.style.width = '0%';
+  status.textContent = 'Se pregătește…';
+
+  let writable = null;
+  try {
+    if (handlePromise) {
+      const handle = await handlePromise;
+      writable = await handle.createWritable();
+    }
+
+    const res = await fetch('/admin/list', { signal: controller.signal });
+    const items = (await res.json()).items;
+    items.sort((a, b) => new Date(a.uploaded) - new Date(b.uploaded));
+    const total = items.reduce((s, i) => s + i.size, 0);
+    const multi = !writable && total > PART_LIMIT;
+    if (!writable) {
+      note.textContent = multi
+        ? 'Acest browser nu poate scrie arhiva direct pe disc, așa că va fi împărțită în părți de cel mult 1 GB. Pentru un singur fișier ZIP folosește Chrome sau Edge.'
+        : 'Arhiva se construiește în memorie și se descarcă la final.';
+    }
+
+    let chunks = [];
+    let partNo = 1, partBytes = 0, done = 0;
+    const sink = writable ? (b) => writable.write(b) : (b) => { chunks.push(b); };
+    let zip = new ZipWriter(sink);
+
+    const flushPart = async () => {
+      await zip.finish();
+      const blob = new Blob(chunks, { type: 'application/zip' });
+      chunks = [];
+      const name = 'amintiri-nunta' + (multi ? '-partea-' + partNo : '') + '.zip';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.textContent = '⬇ ' + name + ' (' + fmt(blob.size) + ')';
+      links.appendChild(a);
+      a.click();
+    };
+
+    for (let i = 0; i < items.length; i++) {
+      if (controller.signal.aborted) throw new DOMException('Anulat', 'AbortError');
+      const item = items[i];
+      if (!writable && partBytes > 0 && partBytes + item.size > PART_LIMIT) {
+        await flushPart();
+        partNo++; partBytes = 0;
+        zip = new ZipWriter(sink);
+      }
+      status.textContent = 'Fișier ' + (i + 1) + ' / ' + items.length + ' · ' + fmt(done) + ' / ' + fmt(total) + (multi ? ' · partea ' + partNo : '');
+      const data = await fetchBytes('/admin/file/' + encodeURIComponent(item.key), controller.signal);
+      await zip.addFile(item.key, data, new Date(item.uploaded));
+      done += item.size; partBytes += item.size;
+      fill.style.width = (total ? done / total * 100 : 100) + '%';
+    }
+
+    if (writable) {
+      await zip.finish();
+      await writable.close();
+      writable = null;
+    } else {
+      await flushPart();
+    }
+    fill.style.width = '100%';
+    status.textContent = 'Gata ✓ ' + items.length + ' fișiere, ' + fmt(done) + (multi ? ', în ' + partNo + ' părți' : '') + '.';
+    if (!writable && links.children.length) note.textContent += ' Dacă descărcarea nu a pornit automat, apasă pe linkurile de mai jos.';
+  } catch (err) {
+    if (writable) { try { await writable.abort(); } catch (e) {} }
+    status.textContent = err.name === 'AbortError' ? 'Descărcare anulată.' : 'Eroare: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    zipAbort = null;
+  }
+}
+
+document.getElementById('zipBtn').onclick = downloadAll;
+document.getElementById('zipCancel').onclick = () => { if (zipAbort) zipAbort.abort(); };
 
 document.getElementById('coupleInput').onchange = async (e) => {
   const file = e.target.files[0];
