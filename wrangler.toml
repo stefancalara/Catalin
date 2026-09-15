@@ -36,8 +36,8 @@ DEMO_EVENT = ""
 OWNER_USER = "admin"
 OWNER_PASS = "casadepiatra"
 
-# Limite: plan demo (500 MB), plan plătit (10 GB), per fișier (100 MB, limita Cloudflare Workers)
-DEMO_MAX_BYTES = "524288000"
+# Limite: plan demo (300 MB ≈ 80 de poze), plan plătit (10 GB), per fișier (100 MB, limita Cloudflare Workers)
+DEMO_MAX_BYTES = "314572800"
 PAID_MAX_BYTES = "10737418240"
 MAX_FILE_BYTES = "104857600"
 

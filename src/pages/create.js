@@ -2,14 +2,14 @@
  * Pagina de creare a unui eveniment nou (/creeaza).
  */
 
-import { escapeHtml, jsonForScript } from '../util.js';
+import { escapeHtml, jsonForScript, approxPhotos } from '../util.js';
 import { TEMPLATES, EVENT_TYPES, DEFAULT_TEMPLATE } from '../templates.js';
 
 export function renderCreatePage(env, url) {
   const brand = env.BRAND_NAME || 'PozeQR';
   const templates = {};
   for (const [id, t] of Object.entries(TEMPLATES)) templates[id] = { name: t.name, desc: t.desc, presets: t.presets };
-  const cfg = { templates, eventTypes: EVENT_TYPES, defaultTemplate: DEFAULT_TEMPLATE, origin: url.origin, demoMb: Math.round(Number(env.DEMO_MAX_BYTES || 524288000) / 1048576) };
+  const cfg = { templates, eventTypes: EVENT_TYPES, defaultTemplate: DEFAULT_TEMPLATE, origin: url.origin, demoMb: Math.round(Number(env.DEMO_MAX_BYTES || 314572800) / 1048576), demoPhotos: approxPhotos(Number(env.DEMO_MAX_BYTES || 314572800)) };
 
   return `<!doctype html>
 <html lang="ro">
@@ -74,7 +74,7 @@ export function renderCreatePage(env, url) {
 <header><a class="logo" href="/">${escapeHtml(brand)}</a><a class="back" href="/">← înapoi</a></header>
 <div class="wrap">
   <h1>Creează evenimentul tău</h1>
-  <p class="lead">Durează 2 minute. Primești imediat pagina, codul QR și panoul de administrare. Începi cu ${cfg.demoMb} MB gratuit pentru testare.</p>
+  <p class="lead">Durează 2 minute. Primești imediat pagina, codul QR și panoul de administrare. Începi cu ${cfg.demoMb} MB gratuit pentru testare (aprox. ${cfg.demoPhotos} de poze).</p>
   <form id="f" autocomplete="off">
     <div class="step">
       <h2><span>1</span> Ce sărbătorești?</h2>
@@ -124,7 +124,7 @@ export function renderCreatePage(env, url) {
 
     <button class="btn" type="submit" id="submit">Creează pagina și codul QR →</button>
     <div class="err" id="err"></div>
-    <p class="fine">Nu ai nevoie de card. Planul demo are ${cfg.demoMb} MB; activarea planului complet se face după ce testezi.</p>
+    <p class="fine">Nu ai nevoie de card. Planul demo are ${cfg.demoMb} MB (aprox. ${cfg.demoPhotos} de poze); activarea planului complet se face după ce testezi.</p>
   </form>
 </div>
 <script>

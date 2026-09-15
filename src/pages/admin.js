@@ -342,6 +342,7 @@ function fmt(b) {
   if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
   return Math.round(b / 1024) + ' KB';
 }
+function approxPhotos(b) { return (Math.floor(b / (3.5 * 1048576) / 10) * 10).toLocaleString('ro-RO'); }
 async function api(path, opts) {
   const res = await fetch(API + path, opts);
   let data = {};
@@ -613,7 +614,7 @@ function updateLinks() {
   $('slugEcho').textContent = ev.slug;
   $('planBadge').textContent = ev.plan === 'paid' ? 'activ' : 'demo';
   $('planBadge').className = 'plan ' + (ev.plan === 'paid' ? 'paid' : 'demo');
-  $('planInfo').innerHTML = (ev.plan === 'paid' ? '<b>Plan activ</b>' : '<b>Plan demo</b>') + ' — spațiu disponibil: <b>' + fmt(ev.maxTotalBytes) + '</b>, maxim ' + Math.round(ev.maxFileBytes / 1048576) + ' MB per fișier.';
+  $('planInfo').innerHTML = (ev.plan === 'paid' ? '<b>Plan activ</b>' : '<b>Plan demo</b>') + ' — spațiu disponibil: <b>' + fmt(ev.maxTotalBytes) + '</b> (aprox. ' + approxPhotos(ev.maxTotalBytes) + ' de poze), maxim ' + Math.round(ev.maxFileBytes / 1048576) + ' MB per fișier.';
   $('planContact').textContent = ev.plan === 'paid' ? '' : ('Planul demo e pentru testare. ' + (CFG.contact || 'Contactează-ne pentru activarea planului complet.'));
   $('msgHelp').textContent = ev.guestbook ? 'Mesajele lăsate de invitați pe pagina de încărcare.' : 'Cartea de oaspeți e dezactivată — o poți porni din Personalizare.';
   const qr = qrcode(0, 'M'); qr.addData(CFG.publicUrl); qr.make();

@@ -2,14 +2,18 @@
  * Pagina de prezentare a platformei (/).
  */
 
-import { escapeHtml } from '../util.js';
+import { escapeHtml, approxPhotos } from '../util.js';
 import { TEMPLATES } from '../templates.js';
 
 export function renderLandingPage(env, url) {
   const brand = env.BRAND_NAME || 'PozeQR';
   const price = env.PRICE_TEXT || '249 lei';
-  const demoMb = Math.round(Number(env.DEMO_MAX_BYTES || 524288000) / 1048576);
-  const paidGb = (Number(env.PAID_MAX_BYTES || 10737418240) / 1073741824).toFixed(0);
+  const demoBytes = Number(env.DEMO_MAX_BYTES || 314572800);
+  const paidBytes = Number(env.PAID_MAX_BYTES || 10737418240);
+  const demoMb = Math.round(demoBytes / 1048576);
+  const paidGb = (paidBytes / 1073741824).toFixed(0);
+  const demoPhotos = approxPhotos(demoBytes);
+  const paidPhotos = approxPhotos(paidBytes);
   const contact = env.CONTACT_TEXT || '';
   const demoEvent = env.DEMO_EVENT ? `/e/${env.DEMO_EVENT}` : '';
 
@@ -104,7 +108,7 @@ export function renderLandingPage(env, url) {
     <p>Pui cartonașul cu cod QR pe mese. Invitații scanează, aleg pozele și clipurile din telefon și gata — apar în albumul vostru. Fără aplicație, fără cont, fără limite de invitați.</p>
     <a class="btn" href="/creeaza">Creează pagina ta →</a>
     ${demoEvent ? `<a class="btn ghost" href="${escapeHtml(demoEvent)}" target="_blank">Vezi un exemplu</a>` : ''}
-    <div class="fine">Gata în 2 minute · ${demoMb} MB gratuit pentru testare · nunți, botezuri, majorate, evenimente de firmă</div>
+    <div class="fine">Gata în 2 minute · ${demoMb} MB gratuit pentru testare (aprox. ${demoPhotos} de poze) · nunți, botezuri, majorate, evenimente de firmă</div>
   </div>
   <div class="mock">
     <div class="phone">
@@ -156,13 +160,13 @@ export function renderLandingPage(env, url) {
     <div class="plan">
       <h3>Demo</h3>
       <div class="p">0 lei</div>
-      <ul><li>Toate funcțiile, pentru testare</li><li>${demoMb} MB spațiu</li><li>Pagină, QR și panou de administrare</li></ul>
+      <ul><li>Toate funcțiile, pentru testare</li><li>${demoMb} MB spațiu — aprox. ${demoPhotos} de poze</li><li>Pagină, QR și panou de administrare</li></ul>
       <a class="btn ghost" style="margin:0" href="/creeaza">Începe gratuit</a>
     </div>
     <div class="plan main">
       <h3>Eveniment</h3>
       <div class="p">${escapeHtml(price)}<small> / eveniment</small></div>
-      <ul><li>${paidGb} GB spațiu (mii de poze și clipuri)</li><li>Invitați nelimitați</li><li>Slideshow live, carte de oaspeți, galerie</li><li>Descărcare totală ZIP</li><li>Fișierele păstrate 12 luni</li></ul>
+      <ul><li>${paidGb} GB spațiu — aprox. ${paidPhotos} de poze, sau poze și clipuri</li><li>Invitați nelimitați</li><li>Slideshow live, carte de oaspeți, galerie</li><li>Descărcare totală ZIP</li><li>Fișierele păstrate 12 luni</li></ul>
       <a class="btn" href="/creeaza">Creează evenimentul</a>
       <p style="font-size:.78rem;color:#888;margin-top:12px">${escapeHtml(contact || 'Activezi planul complet din panoul de administrare, după ce testezi.')}</p>
     </div>

@@ -36,7 +36,7 @@ fiecare cu adresa lui: `/e/<adresa-evenimentului>`.
 
 ## Planuri și vânzare
 
-Un eveniment nou pornește pe planul **demo** (`DEMO_MAX_BYTES`, implicit 500 MB). După ce
+Un eveniment nou pornește pe planul **demo** (`DEMO_MAX_BYTES`, implicit 300 MB, aprox. 80 de poze). După ce
 clientul plătește (transfer, WhatsApp — cum preferi), intri pe `/owner` și apeși **Activează**:
 evenimentul primește spațiul complet (`PAID_MAX_BYTES`, implicit 10 GB). Prețul afișat pe site
 vine din `PRICE_TEXT`, textul de contact din `CONTACT_TEXT`.
@@ -53,7 +53,7 @@ vine din `PRICE_TEXT`, textul de contact din `CONTACT_TEXT`.
 | `PLATFORM_URL` | `https://pozeqr.ro` | Linkul „realizat cu” din subsolul paginilor |
 | `DEMO_EVENT` | *(gol)* | Slug-ul unui eveniment demo legat de pe pagina de prezentare |
 | `OWNER_USER` / `OWNER_PASS` | `admin` / … | Contul de proprietar (`/owner`) — schimbă parola! |
-| `DEMO_MAX_BYTES` | 500 MB | Spațiul planului demo |
+| `DEMO_MAX_BYTES` | 300 MB | Spațiul planului demo (site-ul afișează și numărul aproximativ de poze, la 3,5 MB per poză) |
 | `PAID_MAX_BYTES` | 10 GB | Spațiul planului plătit |
 | `MAX_FILE_BYTES` | 100 MB | Limita per fișier (limita de request Cloudflare Workers) |
 

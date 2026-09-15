@@ -51,6 +51,12 @@ export function sanitizeName(name) {
     .slice(-80) || 'amintire';
 }
 
+// Câte poze de telefon încap, aproximativ (≈3,5 MB per poză), rotunjit la zeci
+export function approxPhotos(bytes) {
+  const n = Math.floor(bytes / (3.5 * 1048576) / 10) * 10;
+  return n.toLocaleString('ro-RO');
+}
+
 export function fmtBytes(b) {
   if (b >= 1073741824) return (b / 1073741824).toFixed(2) + ' GB';
   if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';

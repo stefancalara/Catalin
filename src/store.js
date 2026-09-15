@@ -48,7 +48,7 @@ export async function listEventSlugs(env) {
   return slugs;
 }
 
-export function demoLimit(env) { return Number(env.DEMO_MAX_BYTES || 524288000); }
+export function demoLimit(env) { return Number(env.DEMO_MAX_BYTES || 314572800); }
 export function paidLimit(env) { return Number(env.PAID_MAX_BYTES || 10737418240); }
 export function fileLimit(env) { return Number(env.MAX_FILE_BYTES || 104857600); }
 
