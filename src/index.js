@@ -1,37 +1,41 @@
 /**
- * Nunta Larisa și Cătălin — aplicație de încărcat amintiri (poze + clipuri)
+ * Platformă de colectat poze și clipuri de la invitați prin cod QR.
+ * Cloudflare Workers + R2, mai multe evenimente pe același Worker.
  *
- * Rute:
- *   GET  /                    — pagina principală (fișier static din ./public)
- *   GET  /api/couple          — poza mirilor (din R2, cheia "_couple"), 404 dacă nu e setată
- *   GET  /api/usage           — spațiul folosit / limita totală
- *   POST /api/upload?name=... — încarcă un fișier (corpul cererii = fișierul)
+ * Rute publice:
+ *   GET  /                          — pagina de prezentare (sau evenimentul ROOT_EVENT, vezi wrangler.toml)
+ *   GET  /creeaza                   — creează un eveniment nou
+ *   POST /api/events                — API creare eveniment
+ *   GET  /api/slug-check?slug=      — verifică dacă adresa e liberă
  *
- *   GET    /admin             — panou de administrare (Basic Auth)
- *   GET    /admin/list        — lista fișierelor încărcate (JSON)
- *   GET    /admin/file/<key>  — servește un fișier din R2
- *   DELETE /admin/file/<key>  — șterge un fișier
- *   POST   /admin/couple      — setează poza mirilor de pe pagina principală
+ * Rute per eveniment (/e/<slug>):
+ *   GET  /e/<slug>                  — pagina invitaților
+ *   GET  /e/<slug>/cover            — poza principală
+ *   POST /e/<slug>/api/upload       — încarcă un fișier
+ *   GET  /e/<slug>/api/usage        — spațiu folosit
+ *   POST /e/<slug>/api/message      — mesaj în cartea de oaspeți
+ *   GET  /e/<slug>/api/gallery      — lista fișierelor (dacă galeria e publică sau cu cheie de slideshow)
+ *   GET  /e/<slug>/file/<cheie>     — un fișier (aceleași condiții)
+ *   GET  /e/<slug>/galerie          — galeria publică
+ *   GET  /e/<slug>/slideshow?k=     — slideshow live pentru proiector
+ *   GET  /e/<slug>/print            — cartonașe QR de printat
+ *   GET  /e/<slug>/admin            — panoul evenimentului (parolă + cookie)
+ *   *    /e/<slug>/admin/api/...    — API-ul panoului
+ *
+ * Proprietarul platformei:
+ *   GET  /owner                     — toate evenimentele (Basic Auth OWNER_USER / OWNER_PASS)
  */
 
-const COUPLE_KEY = '_couple';
-
-// Tipul MIME după extensie — galeriile de telefon trimit deseori
-// "application/octet-stream" sau nimic, mai ales pentru videoclipuri.
-const EXT_TYPES = {
-  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-  webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', avif: 'image/avif',
-  bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff', dng: 'image/x-adobe-dng',
-  mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
-  mkv: 'video/x-matroska', avi: 'video/x-msvideo', '3gp': 'video/3gpp', ts: 'video/mp2t',
-  mts: 'video/mp2t', m2ts: 'video/mp2t', mpg: 'video/mpeg', mpeg: 'video/mpeg',
-  wmv: 'video/x-ms-wmv',
-};
-
-function guessType(name, fallback) {
-  const ext = (name.split('.').pop() || '').toLowerCase();
-  return EXT_TYPES[ext] || fallback || 'application/octet-stream';
-}
+import {
+  json, html, redirect, escapeHtml, guessType, sanitizeName, timingSafeEqual,
+  hmacHex, verifyPassword, hashPassword, serverSecret, isValidSlug, parseCookies, cookieHeader, isSecure,
+} from './util.js';
+import * as store from './store.js';
+import { renderGuestPage, renderPrintPage, renderGalleryPage, renderSlideshowPage, normalizeColors, palette } from './templates.js';
+import { renderAdminPage, renderLoginPage } from './pages/admin.js';
+import { renderLandingPage } from './pages/landing.js';
+import { renderCreatePage } from './pages/create.js';
+import { renderOwnerPage } from './pages/owner.js';
 
 export default {
   async fetch(request, env) {
@@ -39,151 +43,455 @@ export default {
     const path = url.pathname;
 
     try {
-      if (path.startsWith('/admin')) {
-        return await handleAdmin(request, env, url);
+      if (path === '/owner' || path.startsWith('/owner/')) {
+        return await handleOwner(request, env, url);
       }
-      if (path === '/api/couple' && request.method === 'GET') {
-        return await serveObject(env, COUPLE_KEY, false, request);
+      if (path === '/api/events' && request.method === 'POST') {
+        return await createEvent(request, env, url);
       }
-      if (path === '/api/usage' && request.method === 'GET') {
-        const used = await totalUsage(env);
-        return json({ used, max: maxTotal(env) });
+      if (path === '/api/slug-check' && request.method === 'GET') {
+        const slug = url.searchParams.get('slug') || '';
+        if (!isValidSlug(slug)) return json({ ok: false, reason: 'invalid' });
+        return json({ ok: !(await store.eventExists(env, slug)) });
       }
-      if (path === '/api/upload' && request.method === 'POST') {
-        return await handleUpload(request, env, url);
+
+      const m = /^\/e\/([a-z0-9-]+)(\/.*)?$/.exec(path);
+      if (m) {
+        return await handleEvent(request, env, url, m[1], m[2] || '/', '/e/' + m[1]);
       }
-      // Orice altceva: fișierele statice din ./public
+
+      // Evenimentul "rădăcină": pe adresa Worker-ului, / rămâne pagina evenimentului
+      // (codurile QR deja tipărite continuă să funcționeze).
+      const root = env.ROOT_EVENT;
+      const onPlatformHost = env.PLATFORM_HOST && url.hostname === env.PLATFORM_HOST;
+      if (root && !onPlatformHost) {
+        if (path === '/' && await store.eventExists(env, root)) return await handleEvent(request, env, url, root, '/', '');
+        if (path === '/admin' || path.startsWith('/admin/')) return redirect(`/e/${root}/admin`);
+        if (path === '/print') return redirect(`/e/${root}/print`);
+        if (path === '/galerie') return redirect(`/e/${root}/galerie`);
+        if (path === '/cover' || path.startsWith('/api/')) return await handleEvent(request, env, url, root, path, '');
+      }
+
+      if (path === '/favicon.ico') return new Response(null, { status: 204 });
+      if (path === '/' || path === '/index.html') return html(renderLandingPage(env, url));
+      if (path === '/creeaza') return html(renderCreatePage(env, url));
+
       return env.ASSETS.fetch(request);
     } catch (err) {
+      console.error(err);
       return json({ error: 'Eroare internă: ' + err.message }, 500);
     }
   },
 };
 
-/* ---------- Încărcare fișiere (invitați) ---------- */
+/* ---------- Creare eveniment ---------- */
 
-async function handleUpload(request, env, url) {
-  const size = Number(request.headers.get('content-length') || 0);
-  const maxFile = Number(env.MAX_FILE_BYTES || 104857600);
+async function createEvent(request, env, url) {
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: 'Date invalide.' }, 400); }
+  if (body.website) return json({ ok: true, url: '/' }); // capcană pentru roboți
 
-  if (!size) {
-    return json({ error: 'Fișier gol sau mărime necunoscută.' }, 411);
-  }
-  if (size > maxFile) {
-    return json({ error: 'Fișierul depășește limita de 100 MB.' }, 413);
-  }
+  const slug = String(body.slug || '').trim().toLowerCase();
+  if (!isValidSlug(slug)) return json({ error: 'Adresa poate conține doar litere mici, cifre și cratime (3–40 caractere).' }, 400);
+  if (!String(body.name1 || '').trim()) return json({ error: 'Completează numele.' }, 400);
+  if (typeof body.password !== 'string' || body.password.length < 6) return json({ error: 'Parola trebuie să aibă cel puțin 6 caractere.' }, 400);
+  if (await store.eventExists(env, slug)) return json({ error: 'Adresa aceasta e deja folosită. Alege alta.' }, 409);
 
-  const used = await totalUsage(env);
-  if (used + size > maxTotal(env)) {
-    return json({ error: 'Spațiul de stocare (10 GB) este plin. Mulțumim pentru toate amintirile!' }, 507);
-  }
+  const secret = serverSecret(env);
+  const ev = await store.buildEvent(env, secret, { ...body, slug });
+  await store.putEvent(env, ev);
 
-  const original = sanitizeName(url.searchParams.get('name') || 'amintire');
-  const key = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${original}`;
-
-  let contentType = request.headers.get('content-type') || '';
-  if (!contentType || contentType === 'application/octet-stream') {
-    contentType = guessType(original);
-  }
-
-  await env.PHOTOS.put(key, request.body, {
-    httpMetadata: { contentType },
-  });
-
-  return json({ ok: true, key });
+  const cookie = await sessionCookie(request, secret, ev);
+  return json({ ok: true, url: `/e/${slug}`, adminUrl: `/e/${slug}/admin` }, 200, { 'set-cookie': cookie });
 }
 
-function sanitizeName(name) {
-  return name
-    .replace(/[^\w.\-ăâîșțĂÂÎȘȚ ]+/g, '_')
-    .replace(/\s+/g, '_')
-    .slice(-80) || 'amintire';
-}
+/* ---------- Rutele unui eveniment ---------- */
 
-/* ---------- Panoul de administrare ---------- */
+async function handleEvent(request, env, url, slug, rest, base) {
+  const ev = await store.getEvent(env, slug);
+  if (!ev) return html(notFoundPage(env), 404);
+  const secret = serverSecret(env);
+  const method = request.method;
+  const brand = { name: env.BRAND_NAME || '', url: env.PLATFORM_URL || '/' };
+  const publicBase = `/e/${slug}`;
 
-async function handleAdmin(request, env, url) {
-  const denied = checkAuth(request, env);
-  if (denied) return denied;
-
-  const path = url.pathname;
-
-  if (path === '/admin' && request.method === 'GET') {
-    return new Response(ADMIN_HTML, {
-      headers: { 'content-type': 'text/html; charset=utf-8' },
+  if (rest === '/' && method === 'GET') {
+    let view = ev;
+    if (url.searchParams.get('preview') === '1') {
+      if (!(await validSession(request, secret, ev))) return html(renderLoginPage(ev, publicBase), 401);
+      view = previewOverrides(ev, url.searchParams);
+    }
+    return html(renderGuestPage(view, { base, preview: view !== ev, brand, coverUrl: base + '/cover?v=' + encodeURIComponent(ev.updatedAt || '') }), 200, {
+      'cache-control': 'no-store',
     });
   }
 
-  if (path === '/admin/list' && request.method === 'GET') {
-    const items = [];
-    let cursor;
-    do {
-      const page = await env.PHOTOS.list({ cursor, include: ['httpMetadata'] });
-      for (const obj of page.objects) {
-        if (obj.key === COUPLE_KEY) continue;
-        items.push({
-          key: obj.key,
-          size: obj.size,
-          uploaded: obj.uploaded,
-          contentType: obj.httpMetadata?.contentType || '',
-        });
-      }
-      cursor = page.truncated ? page.cursor : undefined;
-    } while (cursor);
-    items.sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded));
-    const used = items.reduce((s, o) => s + o.size, 0);
-    return json({ items, used, max: maxTotal(env) });
+  if ((rest === '/cover' || rest === '/api/couple') && method === 'GET') {
+    return await serveCover(env, ev, request, base);
   }
 
-  if (path.startsWith('/admin/file/')) {
-    const key = decodeURIComponent(path.slice('/admin/file/'.length));
-    if (!key || key === COUPLE_KEY) return json({ error: 'Cheie invalidă.' }, 400);
-    if (request.method === 'GET') {
-      return await serveObject(env, key, url.searchParams.has('download'), request);
-    }
-    if (request.method === 'DELETE') {
-      await env.PHOTOS.delete(key);
-      return json({ ok: true });
-    }
+  if (rest === '/api/upload' && method === 'POST') return await handleUpload(request, env, url, ev);
+  if (rest === '/api/usage' && method === 'GET') {
+    const { used } = await store.usageOf(env, slug);
+    return json({ used, max: ev.maxTotalBytes });
+  }
+  if (rest === '/api/message' && method === 'POST') return await handleMessage(request, env, ev);
+
+  if (rest === '/print' && method === 'GET') {
+    const qrUrl = env.ROOT_EVENT === slug && !(env.PLATFORM_HOST && url.hostname === env.PLATFORM_HOST)
+      ? url.origin + '/'
+      : url.origin + publicBase;
+    return html(renderPrintPage(ev, { qrUrl }));
   }
 
-  if (path === '/admin/couple' && request.method === 'POST') {
-    const size = Number(request.headers.get('content-length') || 0);
-    if (!size) return json({ error: 'Fișier gol.' }, 411);
-    await env.PHOTOS.put(COUPLE_KEY, request.body, {
-      httpMetadata: {
-        contentType: request.headers.get('content-type') || 'image/jpeg',
-      },
-    });
-    return json({ ok: true });
+  // Galerie / slideshow: publice dacă evenimentul permite, altfel doar cu cheia din admin
+  const galleryAllowed = ev.publicGallery || (await validSlideshowKey(secret, ev, url.searchParams.get('k')));
+  if (rest === '/galerie' && method === 'GET') {
+    if (!ev.publicGallery) return html(notFoundPage(env, 'Galeria nu este publică.'), 404);
+    return html(renderGalleryPage(ev, { base: publicBase }));
+  }
+  if (rest === '/slideshow' && method === 'GET') {
+    if (!galleryAllowed) return html(notFoundPage(env, 'Link de slideshow invalid.'), 404);
+    const qrUrl = env.ROOT_EVENT === slug && !(env.PLATFORM_HOST && url.hostname === env.PLATFORM_HOST) ? url.origin + '/' : url.origin + publicBase;
+    return html(renderSlideshowPage(ev, { base: publicBase, key: url.searchParams.get('k') || '', qrUrl }));
+  }
+  if (rest === '/api/gallery' && method === 'GET') {
+    if (!galleryAllowed) return json({ error: 'Galeria nu este publică.' }, 403);
+    const items = await store.listFiles(env, slug);
+    return json({ items });
+  }
+  if (rest.startsWith('/file/') && method === 'GET') {
+    if (!galleryAllowed) return json({ error: 'Galeria nu este publică.' }, 403);
+    const key = decodeURIComponent(rest.slice('/file/'.length));
+    return await serveObject(env, store.filesPrefix(slug) + key, false, request, key);
+  }
+
+  /* ----- Admin ----- */
+
+  if (rest === '/admin/login' && method === 'POST') {
+    let body = {};
+    try { body = await request.json(); } catch (e) {}
+    if (!(await verifyPassword(secret, String(body.password || ''), ev.passwordHash))) {
+      return json({ error: 'Parolă greșită.' }, 401);
+    }
+    return json({ ok: true }, 200, { 'set-cookie': await sessionCookie(request, secret, ev) });
+  }
+  if (rest === '/admin/logout' && method === 'POST') {
+    return json({ ok: true }, 200, { 'set-cookie': cookieHeader(cookieName(slug), '', { path: publicBase, maxAge: 0, secure: isSecure(request) }) });
+  }
+  if (rest === '/admin' && method === 'GET') {
+    if (!(await validSession(request, secret, ev))) return html(renderLoginPage(ev, publicBase), 401);
+    const slideshowKey = await slideshowKeyFor(secret, ev);
+    return html(renderAdminPage(ev, env, { base: publicBase, slideshowKey, origin: url.origin, rootEvent: env.ROOT_EVENT === slug }), 200, { 'cache-control': 'no-store' });
+  }
+  if (rest.startsWith('/admin/api/')) {
+    if (!(await validSession(request, secret, ev))) return json({ error: 'Neautentificat.' }, 401);
+    if (method !== 'GET' && !sameOrigin(request)) return json({ error: 'Cerere refuzată.' }, 403);
+    return await handleAdminApi(request, env, url, ev, rest.slice('/admin/api'.length), secret);
   }
 
   return json({ error: 'Rută necunoscută.' }, 404);
 }
 
-function checkAuth(request, env) {
-  const header = request.headers.get('authorization') || '';
-  const expected = 'Basic ' + btoa(`${env.ADMIN_USER}:${env.ADMIN_PASS}`);
-  if (timingSafeEqual(header, expected)) return null;
-  return new Response('Autentificare necesară', {
-    status: 401,
-    headers: { 'www-authenticate': 'Basic realm="Admin Nunta", charset="UTF-8"' },
+function previewOverrides(ev, q) {
+  const view = JSON.parse(JSON.stringify(ev));
+  const s = {};
+  for (const k of ['name1', 'name2', 'date', 'type', 'template']) if (q.has(k)) s[k] = q.get(k);
+  const colors = {};
+  for (const k of ['primary', 'accent', 'bg']) if (q.has(k)) colors[k] = q.get(k);
+  if (Object.keys(colors).length) s.colors = colors;
+  if (q.has('intro')) s.intro = q.get('intro') === '1';
+  if (q.has('guestbook')) s.guestbook = q.get('guestbook') === '1';
+  if (q.has('publicGallery')) s.publicGallery = q.get('publicGallery') === '1';
+  const texts = {};
+  for (const k of ['subtitle', 'footer', 'buttonText', 'buttonHint', 'introText', 'thanksText', 'guestbookTitle']) if (q.has('t_' + k)) texts[k] = q.get('t_' + k);
+  if (Object.keys(texts).length) s.texts = texts;
+  return store.applySettings(view, s);
+}
+
+/* ---------- Încărcare fișiere (invitați) ---------- */
+
+async function handleUpload(request, env, url, ev) {
+  const size = Number(request.headers.get('content-length') || 0);
+  const maxFile = ev.maxFileBytes || store.fileLimit(env);
+  if (!size) return json({ error: 'Fișier gol sau mărime necunoscută.' }, 411);
+  if (size > maxFile) return json({ error: `Fișierul depășește limita de ${Math.round(maxFile / 1048576)} MB.` }, 413);
+
+  const { used } = await store.usageOf(env, ev.slug);
+  if (used + size > ev.maxTotalBytes) {
+    return json({ error: 'Spațiul de stocare al evenimentului este plin. Mulțumim pentru toate amintirile!' }, 507);
+  }
+
+  const original = sanitizeName(url.searchParams.get('name') || 'amintire');
+  const key = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${original}`;
+  let contentType = request.headers.get('content-type') || '';
+  if (!contentType || contentType === 'application/octet-stream') contentType = guessType(original);
+
+  await env.PHOTOS.put(store.filesPrefix(ev.slug) + key, request.body, { httpMetadata: { contentType } });
+  return json({ ok: true, key });
+}
+
+async function handleMessage(request, env, ev) {
+  if (!ev.guestbook) return json({ error: 'Cartea de oaspeți nu este activă.' }, 403);
+  let body = {};
+  try { body = await request.json(); } catch (e) { return json({ error: 'Date invalide.' }, 400); }
+  const name = String(body.name || '').trim().slice(0, 60);
+  const text = String(body.text || '').trim().slice(0, 600);
+  if (!name || !text) return json({ error: 'Completează numele și mesajul.' }, 400);
+  const id = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  await env.PHOTOS.put(store.messagesPrefix(ev.slug) + id + '.json', JSON.stringify({ name, text, at: new Date().toISOString() }), {
+    httpMetadata: { contentType: 'application/json' },
   });
+  return json({ ok: true });
 }
 
-function timingSafeEqual(a, b) {
-  const enc = new TextEncoder();
-  const ba = enc.encode(a);
-  const bb = enc.encode(b);
-  if (ba.length !== bb.length) return false;
-  let diff = 0;
-  for (let i = 0; i < ba.length; i++) diff |= ba[i] ^ bb[i];
-  return diff === 0;
+/* ---------- API-ul panoului de admin ---------- */
+
+async function handleAdminApi(request, env, url, ev, sub, secret) {
+  const method = request.method;
+  const slug = ev.slug;
+
+  if (sub === '/list' && method === 'GET') {
+    const items = await store.listFiles(env, slug);
+    const used = items.reduce((s, o) => s + o.size, 0);
+    return json({ items, used, max: ev.maxTotalBytes });
+  }
+
+  if (sub.startsWith('/file/')) {
+    const key = decodeURIComponent(sub.slice('/file/'.length));
+    if (!key || key.includes('/')) return json({ error: 'Cheie invalidă.' }, 400);
+    const fullKey = store.filesPrefix(slug) + key;
+    if (method === 'GET') return await serveObject(env, fullKey, url.searchParams.has('download'), request, key);
+    if (method === 'DELETE') { await env.PHOTOS.delete(fullKey); return json({ ok: true }); }
+  }
+
+  if (sub === '/settings') {
+    if (method === 'GET') return json(store.publicEvent(ev));
+    if (method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: 'Date invalide.' }, 400); }
+      store.applySettings(ev, body);
+      await store.putEvent(env, ev);
+      return json({ ok: true, event: store.publicEvent(ev) });
+    }
+  }
+
+  if (sub === '/cover') {
+    if (method === 'POST') {
+      const size = Number(request.headers.get('content-length') || 0);
+      if (!size) return json({ error: 'Fișier gol.' }, 411);
+      if (size > 15 * 1048576) return json({ error: 'Poza principală trebuie să aibă sub 15 MB.' }, 413);
+      await env.PHOTOS.put(store.coverKey(slug), request.body, {
+        httpMetadata: { contentType: request.headers.get('content-type') || 'image/jpeg' },
+      });
+      await store.putEvent(env, ev); // actualizează updatedAt → invalidează cache-ul pozei
+      return json({ ok: true });
+    }
+    if (method === 'DELETE') {
+      await env.PHOTOS.delete(store.coverKey(slug));
+      await store.putEvent(env, ev);
+      return json({ ok: true });
+    }
+  }
+
+  if (sub === '/password' && method === 'POST') {
+    let body = {};
+    try { body = await request.json(); } catch (e) {}
+    if (typeof body.password !== 'string' || body.password.length < 6) return json({ error: 'Parola trebuie să aibă cel puțin 6 caractere.' }, 400);
+    ev.passwordHash = await hashPassword(secret, body.password);
+    await store.putEvent(env, ev);
+    return json({ ok: true }, 200, { 'set-cookie': await sessionCookie(request, secret, ev) });
+  }
+
+  if (sub === '/messages' && method === 'GET') {
+    return json({ items: await store.listMessages(env, slug) });
+  }
+  if (sub.startsWith('/message/') && method === 'DELETE') {
+    const id = decodeURIComponent(sub.slice('/message/'.length));
+    if (!/^[\w-]+$/.test(id)) return json({ error: 'ID invalid.' }, 400);
+    await env.PHOTOS.delete(store.messagesPrefix(slug) + id + '.json');
+    return json({ ok: true });
+  }
+
+  if (sub === '/delete-event' && method === 'POST') {
+    let body = {};
+    try { body = await request.json(); } catch (e) {}
+    if (body.confirm !== slug) return json({ error: 'Scrie adresa evenimentului pentru confirmare.' }, 400);
+    const deleted = await store.deleteEvent(env, slug);
+    return json({ ok: true, deleted }, 200, { 'set-cookie': cookieHeader(cookieName(slug), '', { path: `/e/${slug}`, maxAge: 0, secure: isSecure(request) }) });
+  }
+
+  return json({ error: 'Rută necunoscută.' }, 404);
 }
 
-/* ---------- Utilitare ---------- */
+/* ---------- Panoul proprietarului ---------- */
 
-async function serveObject(env, key, forceDownload = false, request = null) {
+async function handleOwner(request, env, url) {
+  const user = env.OWNER_USER || env.ADMIN_USER || 'admin';
+  const pass = env.OWNER_PASS || env.ADMIN_PASS || '';
+  const header = request.headers.get('authorization') || '';
+  if (!pass || !timingSafeEqual(header, 'Basic ' + btoa(`${user}:${pass}`))) {
+    return new Response('Autentificare necesară', {
+      status: 401,
+      headers: { 'www-authenticate': 'Basic realm="Proprietar platforma", charset="UTF-8"' },
+    });
+  }
+  const path = url.pathname;
+  const method = request.method;
+  const secret = serverSecret(env);
+
+  if (path === '/owner' && method === 'GET') {
+    return html(renderOwnerPage(env, url), 200, { 'cache-control': 'no-store' });
+  }
+
+  if (path === '/owner/api/events' && method === 'GET') {
+    const slugs = await store.listEventSlugs(env);
+    const events = [];
+    for (const slug of slugs) {
+      const ev = await store.getEvent(env, slug);
+      if (!ev) continue;
+      const { used, count } = await store.usageOf(env, slug);
+      events.push({ ...store.publicEvent(ev), used, count });
+    }
+    events.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    // Fișiere rămase la rădăcina bucket-ului (de dinaintea platformei)
+    const legacy = await env.PHOTOS.list({ limit: 1000 });
+    const legacyCount = legacy.objects.filter(o => !o.key.startsWith('ev/')).length;
+    return json({ events, legacyCount, demoLimit: store.demoLimit(env), paidLimit: store.paidLimit(env) });
+  }
+
+  const m = /^\/owner\/api\/event\/([a-z0-9-]+)(\/login)?$/.exec(path);
+  if (m) {
+    const ev = await store.getEvent(env, m[1]);
+    if (!ev) return json({ error: 'Evenimentul nu există.' }, 404);
+    if (m[2] === '/login' && method === 'POST') {
+      return json({ ok: true, adminUrl: `/e/${ev.slug}/admin` }, 200, { 'set-cookie': await sessionCookie(request, secret, ev) });
+    }
+    if (method === 'PATCH') {
+      let body = {};
+      try { body = await request.json(); } catch (e) {}
+      if (body.plan === 'demo' || body.plan === 'paid') {
+        ev.plan = body.plan;
+        ev.maxTotalBytes = body.plan === 'paid' ? store.paidLimit(env) : store.demoLimit(env);
+      }
+      if (Number(body.maxTotalBytes) > 0) ev.maxTotalBytes = Number(body.maxTotalBytes);
+      if (typeof body.note === 'string') ev.note = body.note.slice(0, 300);
+      if (typeof body.password === 'string' && body.password.length >= 6) ev.passwordHash = await hashPassword(secret, body.password);
+      await store.putEvent(env, ev);
+      return json({ ok: true, event: store.publicEvent(ev) });
+    }
+    if (method === 'DELETE') {
+      const deleted = await store.deleteEvent(env, ev.slug);
+      return json({ ok: true, deleted });
+    }
+  }
+
+  // Mută fișierele vechi de la rădăcina bucket-ului într-un eveniment (în loturi mici,
+  // ca să rămânem sub limita de sub-cereri a unei singure cereri).
+  if (path === '/owner/api/migrate-legacy' && method === 'POST') {
+    let body = {};
+    try { body = await request.json(); } catch (e) {}
+    const slug = String(body.slug || '').trim().toLowerCase();
+    if (!isValidSlug(slug)) return json({ error: 'Adresă invalidă.' }, 400);
+    let ev = await store.getEvent(env, slug);
+    if (!ev) {
+      if (!body.name1 || typeof body.password !== 'string' || body.password.length < 6) {
+        return json({ error: 'Evenimentul nu există: dă-i un nume și o parolă (min. 6 caractere) ca să fie creat.' }, 400);
+      }
+      ev = await store.buildEvent(env, secret, { ...body, slug, template: 'smarald', type: body.type || 'nunta' });
+      ev.plan = 'paid';
+      ev.maxTotalBytes = store.paidLimit(env);
+      await store.putEvent(env, ev);
+    }
+    const page = await env.PHOTOS.list({ limit: 200 });
+    const legacyKeys = page.objects.filter(o => !o.key.startsWith('ev/')).map(o => o.key).slice(0, 8);
+    let moved = 0;
+    for (const key of legacyKeys) {
+      const obj = await env.PHOTOS.get(key);
+      if (!obj) continue;
+      const target = key === '_couple' ? store.coverKey(slug) : store.filesPrefix(slug) + key;
+      const { readable, writable } = new FixedLengthStream(obj.size);
+      obj.body.pipeTo(writable);
+      await env.PHOTOS.put(target, readable, { httpMetadata: obj.httpMetadata });
+      await env.PHOTOS.delete(key);
+      moved++;
+    }
+    const after = await env.PHOTOS.list({ limit: 1000 });
+    const remaining = after.objects.filter(o => !o.key.startsWith('ev/')).length;
+    return json({ ok: true, moved, remaining });
+  }
+
+  return json({ error: 'Rută necunoscută.' }, 404);
+}
+
+/* ---------- Sesiuni admin ---------- */
+
+function cookieName(slug) { return 'adm_' + slug.replace(/-/g, '_'); }
+
+async function sessionCookie(request, secret, ev) {
+  const exp = Date.now() + 30 * 86400000;
+  const sig = await hmacHex(secret, `adm:${ev.slug}:${exp}:${ev.passwordHash}`);
+  return cookieHeader(cookieName(ev.slug), `${exp}.${sig}`, { path: `/e/${ev.slug}`, secure: isSecure(request) });
+}
+
+async function validSession(request, secret, ev) {
+  const value = parseCookies(request)[cookieName(ev.slug)];
+  if (!value) return false;
+  const [exp, sig] = value.split('.');
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  const expected = await hmacHex(secret, `adm:${ev.slug}:${exp}:${ev.passwordHash}`);
+  return timingSafeEqual(sig, expected);
+}
+
+async function slideshowKeyFor(secret, ev) {
+  return (await hmacHex(secret, `slideshow:${ev.slug}:${ev.passwordHash}`)).slice(0, 20);
+}
+
+async function validSlideshowKey(secret, ev, key) {
+  if (!key) return false;
+  return timingSafeEqual(key, await slideshowKeyFor(secret, ev));
+}
+
+function sameOrigin(request) {
+  const site = request.headers.get('sec-fetch-site');
+  if (site && site !== 'same-origin' && site !== 'none') return false;
+  const origin = request.headers.get('origin');
+  if (origin && origin !== new URL(request.url).origin) return false;
+  return true;
+}
+
+/* ---------- Servirea obiectelor din R2 ---------- */
+
+async function serveCover(env, ev, request, base) {
+  const obj = await env.PHOTOS.get(store.coverKey(ev.slug));
+  if (obj) {
+    const headers = new Headers();
+    obj.writeHttpMetadata(headers);
+    headers.set('etag', obj.httpEtag);
+    headers.set('cache-control', 'public, max-age=300');
+    return new Response(obj.body, { headers });
+  }
+  // Fără poză: pentru evenimentul rădăcină folosim couple.jpg din /public (dacă există),
+  // altfel un placeholder generat în culorile evenimentului
+  if (env.ROOT_EVENT === ev.slug) {
+    const assetUrl = new URL(request.url);
+    assetUrl.pathname = '/couple.jpg';
+    const res = await env.ASSETS.fetch(new Request(assetUrl.toString(), { method: 'GET' }));
+    if (res.ok) return res;
+  }
+  const pal = palette(normalizeColors(ev.template, ev.colors));
+  const initials = [ev.name1, ev.name2].filter(Boolean).map(n => n.trim()[0] || '').join(' & ');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${pal.c1l}"/><stop offset="1" stop-color="${pal.c1}"/></linearGradient></defs>
+<rect width="400" height="500" fill="url(#g)"/>
+<path d="M200 330 C120 270 90 220 110 180 C130 145 180 150 200 190 C220 150 270 145 290 180 C310 220 280 270 200 330 Z" fill="none" stroke="${pal.c1d}" stroke-width="3" opacity=".55"/>
+<text x="200" y="250" text-anchor="middle" font-family="Georgia, serif" font-size="46" fill="${pal.c1d}" opacity=".85">${escapeHtml(initials)}</text>
+<text x="200" y="420" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="16" fill="${pal.c1d}" opacity=".7">poza va apărea aici</text>
+</svg>`;
+  return new Response(svg, { headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'no-store' } });
+}
+
+async function serveObject(env, key, forceDownload, request, downloadName) {
   // Suport pentru cereri Range — obligatoriu ca video-urile să poată fi
   // redate (mai ales pe iPhone/Safari) și derulate.
   const rangeHeader = request && request.headers.get('range');
@@ -196,17 +504,12 @@ async function serveObject(env, key, forceDownload = false, request = null) {
 
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
-  // Corectăm tipul pentru fișierele vechi salvate fără MIME corect
   const storedType = headers.get('content-type');
-  if (!storedType || storedType === 'application/octet-stream') {
-    headers.set('content-type', guessType(key));
-  }
+  if (!storedType || storedType === 'application/octet-stream') headers.set('content-type', guessType(key));
   headers.set('etag', obj.httpEtag);
   headers.set('accept-ranges', 'bytes');
-  headers.set('cache-control', key === COUPLE_KEY ? 'public, max-age=300' : 'private, max-age=3600');
-  if (forceDownload) {
-    headers.set('content-disposition', `attachment; filename="${key.replace(/"/g, '')}"`);
-  }
+  headers.set('cache-control', 'private, max-age=3600');
+  if (forceDownload) headers.set('content-disposition', `attachment; filename="${(downloadName || key).replace(/"/g, '')}"`);
 
   let status = 200;
   if (obj.range && rangeHeader && !forceDownload) {
@@ -219,432 +522,9 @@ async function serveObject(env, key, forceDownload = false, request = null) {
   return new Response(obj.body, { status, headers });
 }
 
-async function totalUsage(env) {
-  let used = 0;
-  let cursor;
-  do {
-    const page = await env.PHOTOS.list({ cursor });
-    for (const obj of page.objects) {
-      if (obj.key !== COUPLE_KEY) used += obj.size;
-    }
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
-  return used;
+function notFoundPage(env, msg) {
+  const brand = env.BRAND_NAME || 'Platforma';
+  return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Nu am găsit pagina</title>
+<style>body{font-family:Georgia,serif;background:#faf8f3;color:#333;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px}h1{font-weight:normal;color:#0a4a3b}a{color:#0f6e57}</style></head>
+<body><div><h1>${escapeHtml(msg || 'Evenimentul nu există (sau a fost șters).')}</h1><p><a href="/">${escapeHtml(brand)} — pagina principală</a></p></div></body></html>`;
 }
-
-function maxTotal(env) {
-  return Number(env.MAX_TOTAL_BYTES || 10737418240);
-}
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
-}
-
-/* ---------- Pagina de administrare ---------- */
-
-const ADMIN_HTML = `<!doctype html>
-<html lang="ro">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin — Nunta Larisa și Cătălin</title>
-<style>
-  :root {
-    --verde: #0f6e57;
-    --verde-inchis: #0a4a3b;
-    --crem: #faf7f2;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Georgia, 'Times New Roman', serif; background: var(--crem); color: #333; }
-  header { background: var(--verde); color: #fff; padding: 20px; text-align: center; }
-  header h1 { font-weight: normal; font-size: 1.5rem; }
-  .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
-  .stats { background: #fff; border: 1px solid #e2ddd2; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
-  .bar { flex: 1 1 240px; height: 10px; background: #e9e4d9; border-radius: 5px; overflow: hidden; }
-  .bar div { height: 100%; background: var(--verde); border-radius: 5px; width: 0; transition: width .5s; }
-  .couple-box { background: #fff; border: 1px solid #e2ddd2; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
-  .couple-box h2 { font-size: 1.1rem; color: var(--verde-inchis); margin-bottom: 10px; }
-  .couple-box label { display: inline-block; background: var(--verde); color: #fff; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
-  .couple-box input { display: none; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
-  .card { background: #fff; border: 1px solid #e2ddd2; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
-  .card .thumb { width: 100%; aspect-ratio: 1; object-fit: cover; background: #eee; display: block; }
-  .card .thumb.ph { display: flex; align-items: center; justify-content: center; font-size: 2.6rem; color: #aaa; }
-  .card .badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,.55); color: #fff; font-size: .7rem; padding: 3px 8px; border-radius: 6px; }
-  .card .thumb-wrap { position: relative; }
-  .card .meta { padding: 8px 10px; font-size: .75rem; color: #666; word-break: break-all; }
-  .card .actions { display: flex; border-top: 1px solid #eee; }
-  .card .actions a, .card .actions button { flex: 1; padding: 8px; text-align: center; font-size: .8rem; border: none; background: none; cursor: pointer; color: var(--verde-inchis); text-decoration: none; font-family: inherit; }
-  .card .actions button.del { color: #a33; }
-  .card .actions a:hover, .card .actions button:hover { background: #f4f1ea; }
-  .empty { text-align: center; color: #888; padding: 40px 0; }
-  .msg { margin: 10px 0; color: var(--verde-inchis); }
-  .btn { background: var(--verde); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: .95rem; }
-  .btn:hover { background: var(--verde-inchis); }
-  .btn:disabled { opacity: .5; cursor: default; }
-  .btn.secondary { background: #fff; color: #a33; border: 1px solid #e2ddd2; }
-  .zip-panel { background: #fff; border: 1px solid #e2ddd2; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
-  .zip-panel h2 { font-size: 1.1rem; color: var(--verde-inchis); margin-bottom: 10px; }
-  .zip-panel .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  .zip-panel .note { font-size: .85rem; color: #777; margin-top: 8px; }
-  .zip-panel .links { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-  .zip-panel .links a { color: var(--verde-inchis); }
-</style>
-</head>
-<body>
-<header><h1>Panou administrare — Nunta Larisa și Cătălin</h1></header>
-<div class="container">
-  <div class="stats">
-    <span id="count">…</span>
-    <div class="bar"><div id="barfill"></div></div>
-    <span id="usage">…</span>
-    <button class="btn" id="zipBtn">⬇ Descarcă tot (ZIP)</button>
-  </div>
-
-  <div class="zip-panel" id="zipPanel" hidden>
-    <h2>Descărcare totală</h2>
-    <div class="row">
-      <div class="bar"><div id="zipFill"></div></div>
-      <span id="zipStatus">…</span>
-      <button class="btn secondary" id="zipCancel">Anulează</button>
-    </div>
-    <div class="note" id="zipNote"></div>
-    <div class="links" id="zipLinks"></div>
-  </div>
-
-  <div class="couple-box">
-    <h2>Poza mirilor de pe pagina principală</h2>
-    <p style="font-size:.85rem;color:#777;margin-bottom:10px;">Încarcă aici poza cu Larisa și Cătălin — apare automat pe prima pagină.</p>
-    <label>Alege poza mirilor<input type="file" id="coupleInput" accept="image/*"></label>
-    <span class="msg" id="coupleMsg"></span>
-  </div>
-
-  <div class="grid" id="grid"></div>
-  <div class="empty" id="empty" hidden>Nicio amintire încărcată încă.</div>
-</div>
-<script>
-function fmt(b) {
-  if (b >= 1073741824) return (b / 1073741824).toFixed(2) + ' GB';
-  if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
-  return Math.round(b / 1024) + ' KB';
-}
-
-let currentItems = [];
-
-async function load() {
-  const res = await fetch('/admin/list');
-  const data = await res.json();
-  currentItems = data.items;
-  document.getElementById('count').textContent = data.items.length + ' fișiere';
-  document.getElementById('usage').textContent = fmt(data.used) + ' / ' + fmt(data.max);
-  document.getElementById('barfill').style.width = Math.min(100, data.used / data.max * 100) + '%';
-  const grid = document.getElementById('grid');
-  grid.innerHTML = '';
-  document.getElementById('empty').hidden = data.items.length > 0;
-  for (const item of data.items) {
-    const fileUrl = '/admin/file/' + encodeURIComponent(item.key);
-    const card = document.createElement('div');
-    card.className = 'card';
-    const isVideo = item.contentType.startsWith('video/') ||
-      /\\.(mp4|m4v|mov|webm|mkv|avi|3gp|ts|mts|m2ts|mpg|mpeg|wmv)$/i.test(item.key);
-    card.innerHTML =
-      (isVideo
-        ? '<div class="thumb-wrap"><video class="thumb" src="' + fileUrl + '#t=0.1" preload="metadata" controls muted playsinline></video><span class="badge">🎬 video</span></div>'
-        : '<img class="thumb" src="' + fileUrl + '" loading="lazy" alt="">') +
-      '<div class="meta">' + item.key + '<br>' + fmt(item.size) + ' · ' + new Date(item.uploaded).toLocaleString('ro-RO') + '</div>' +
-      '<div class="actions">' +
-        '<a href="' + fileUrl + '?download" download>Descarcă</a>' +
-        '<button class="del">Șterge</button>' +
-      '</div>';
-    // Dacă imaginea nu se poate afișa (ex. video cu nume de poză sau HEIC),
-    // încercăm ca video, apoi arătăm un simbol generic.
-    const img = card.querySelector('img.thumb');
-    if (img) {
-      img.onerror = () => {
-        const v = document.createElement('video');
-        v.className = 'thumb';
-        v.src = fileUrl + '#t=0.1';
-        v.controls = true; v.muted = true; v.playsInline = true; v.preload = 'metadata';
-        v.onerror = () => {
-          const d = document.createElement('div');
-          d.className = 'thumb ph';
-          d.textContent = '🖼️';
-          v.replaceWith(d);
-        };
-        img.replaceWith(v);
-      };
-    }
-    card.querySelector('.del').onclick = async () => {
-      if (!confirm('Sigur ștergi acest fișier?')) return;
-      await fetch(fileUrl, { method: 'DELETE' });
-      load();
-    };
-    grid.appendChild(card);
-  }
-}
-
-/* ---------- Descărcare totală ca ZIP ---------- */
-
-// ZIP fără compresie ("store") — pozele și clipurile sunt deja comprimate,
-// iar așa nu pierdem timp. Suportă ZIP64 pentru arhive peste 4 GB.
-
-const CRC_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-})();
-
-function crc32(bytes) {
-  let crc = 0xFFFFFFFF;
-  for (let i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
-  return (crc ^ 0xFFFFFFFF) >>> 0;
-}
-
-function dosDateTime(d) {
-  const y = Math.max(1980, d.getFullYear());
-  return {
-    dosTime: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
-    dosDate: ((y - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
-  };
-}
-
-class ZipWriter {
-  constructor(sink) { this.sink = sink; this.offset = 0; this.entries = []; }
-
-  async write(bytes) { await this.sink(bytes); this.offset += bytes.byteLength; }
-
-  async addFile(name, data, date) {
-    const nameBytes = new TextEncoder().encode(name);
-    const crc = crc32(data);
-    const size = data.byteLength;
-    const { dosTime, dosDate } = dosDateTime(date);
-    const h = new DataView(new ArrayBuffer(30 + nameBytes.length));
-    h.setUint32(0, 0x04034b50, true);   // semnătură antet local
-    h.setUint16(4, 20, true);           // versiune necesară
-    h.setUint16(6, 0x0800, true);       // nume în UTF-8
-    h.setUint16(8, 0, true);            // metoda: store
-    h.setUint16(10, dosTime, true);
-    h.setUint16(12, dosDate, true);
-    h.setUint32(14, crc, true);
-    h.setUint32(18, size, true);
-    h.setUint32(22, size, true);
-    h.setUint16(26, nameBytes.length, true);
-    h.setUint16(28, 0, true);
-    new Uint8Array(h.buffer).set(nameBytes, 30);
-    const offset = this.offset;
-    await this.write(new Uint8Array(h.buffer));
-    await this.write(data);
-    this.entries.push({ nameBytes, crc, size, dosTime, dosDate, offset });
-  }
-
-  async finish() {
-    const cdStart = this.offset;
-    for (const e of this.entries) {
-      const zip64 = e.offset >= 0xFFFFFFFF;
-      const extraLen = zip64 ? 12 : 0;
-      const c = new DataView(new ArrayBuffer(46 + e.nameBytes.length + extraLen));
-      c.setUint32(0, 0x02014b50, true);
-      c.setUint16(4, zip64 ? 45 : 20, true);
-      c.setUint16(6, zip64 ? 45 : 20, true);
-      c.setUint16(8, 0x0800, true);
-      c.setUint16(10, 0, true);
-      c.setUint16(12, e.dosTime, true);
-      c.setUint16(14, e.dosDate, true);
-      c.setUint32(16, e.crc, true);
-      c.setUint32(20, e.size, true);
-      c.setUint32(24, e.size, true);
-      c.setUint16(28, e.nameBytes.length, true);
-      c.setUint16(30, extraLen, true);
-      c.setUint16(32, 0, true);
-      c.setUint16(34, 0, true);
-      c.setUint16(36, 0, true);
-      c.setUint32(38, 0, true);
-      c.setUint32(42, zip64 ? 0xFFFFFFFF : e.offset, true);
-      const u8 = new Uint8Array(c.buffer);
-      u8.set(e.nameBytes, 46);
-      if (zip64) {
-        const p = 46 + e.nameBytes.length;
-        c.setUint16(p, 0x0001, true);
-        c.setUint16(p + 2, 8, true);
-        c.setBigUint64(p + 4, BigInt(e.offset), true);
-      }
-      await this.write(u8);
-    }
-    const cdSize = this.offset - cdStart;
-    const count = this.entries.length;
-    if (cdStart >= 0xFFFFFFFF || cdSize >= 0xFFFFFFFF || count >= 0xFFFF) {
-      const z = new DataView(new ArrayBuffer(76));
-      z.setUint32(0, 0x06064b50, true);   // ZIP64 end of central directory
-      z.setBigUint64(4, BigInt(44), true);
-      z.setUint16(12, 45, true);
-      z.setUint16(14, 45, true);
-      z.setUint32(16, 0, true);
-      z.setUint32(20, 0, true);
-      z.setBigUint64(24, BigInt(count), true);
-      z.setBigUint64(32, BigInt(count), true);
-      z.setBigUint64(40, BigInt(cdSize), true);
-      z.setBigUint64(48, BigInt(cdStart), true);
-      z.setUint32(56, 0x07064b50, true);  // ZIP64 locator
-      z.setUint32(60, 0, true);
-      z.setBigUint64(64, BigInt(this.offset), true);
-      z.setUint32(72, 1, true);
-      await this.write(new Uint8Array(z.buffer));
-    }
-    const e = new DataView(new ArrayBuffer(22));
-    e.setUint32(0, 0x06054b50, true);
-    e.setUint16(4, 0, true);
-    e.setUint16(6, 0, true);
-    e.setUint16(8, Math.min(count, 0xFFFF), true);
-    e.setUint16(10, Math.min(count, 0xFFFF), true);
-    e.setUint32(12, Math.min(cdSize, 0xFFFFFFFF), true);
-    e.setUint32(16, Math.min(cdStart, 0xFFFFFFFF), true);
-    e.setUint16(20, 0, true);
-    await this.write(new Uint8Array(e.buffer));
-  }
-}
-
-async function fetchBytes(url, signal) {
-  let lastErr;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetch(url, { signal });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return new Uint8Array(await res.arrayBuffer());
-    } catch (err) {
-      if (err.name === 'AbortError') throw err;
-      lastErr = err;
-      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-    }
-  }
-  throw lastErr;
-}
-
-// Când browserul nu poate scrie direct pe disc (Safari, Firefox), arhiva se
-// construiește în memorie și se împarte în bucăți de cel mult 1 GB.
-const PART_LIMIT = 1024 * 1024 * 1024;
-let zipAbort = null;
-
-async function downloadAll() {
-  const btn = document.getElementById('zipBtn');
-  const status = document.getElementById('zipStatus');
-  const fill = document.getElementById('zipFill');
-  const note = document.getElementById('zipNote');
-  const links = document.getElementById('zipLinks');
-
-  if (!currentItems.length) { alert('Nu există nicio amintire de descărcat.'); return; }
-
-  // Dialogul de salvare trebuie deschis direct din click (înainte de orice await).
-  let handlePromise = null;
-  if (window.showSaveFilePicker) {
-    handlePromise = window.showSaveFilePicker({
-      suggestedName: 'amintiri-nunta.zip',
-      types: [{ description: 'Arhivă ZIP', accept: { 'application/zip': ['.zip'] } }],
-    });
-  }
-
-  const controller = new AbortController();
-  zipAbort = controller;
-  btn.disabled = true;
-  document.getElementById('zipPanel').hidden = false;
-  links.innerHTML = '';
-  note.textContent = '';
-  fill.style.width = '0%';
-  status.textContent = 'Se pregătește…';
-
-  let writable = null;
-  try {
-    if (handlePromise) {
-      const handle = await handlePromise;
-      writable = await handle.createWritable();
-    }
-
-    const res = await fetch('/admin/list', { signal: controller.signal });
-    const items = (await res.json()).items;
-    items.sort((a, b) => new Date(a.uploaded) - new Date(b.uploaded));
-    const total = items.reduce((s, i) => s + i.size, 0);
-    const multi = !writable && total > PART_LIMIT;
-    if (!writable) {
-      note.textContent = multi
-        ? 'Acest browser nu poate scrie arhiva direct pe disc, așa că va fi împărțită în părți de cel mult 1 GB. Pentru un singur fișier ZIP folosește Chrome sau Edge.'
-        : 'Arhiva se construiește în memorie și se descarcă la final.';
-    }
-
-    let chunks = [];
-    let partNo = 1, partBytes = 0, done = 0;
-    const sink = writable ? (b) => writable.write(b) : (b) => { chunks.push(b); };
-    let zip = new ZipWriter(sink);
-
-    const flushPart = async () => {
-      await zip.finish();
-      const blob = new Blob(chunks, { type: 'application/zip' });
-      chunks = [];
-      const name = 'amintiri-nunta' + (multi ? '-partea-' + partNo : '') + '.zip';
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      a.textContent = '⬇ ' + name + ' (' + fmt(blob.size) + ')';
-      links.appendChild(a);
-      a.click();
-    };
-
-    for (let i = 0; i < items.length; i++) {
-      if (controller.signal.aborted) throw new DOMException('Anulat', 'AbortError');
-      const item = items[i];
-      if (!writable && partBytes > 0 && partBytes + item.size > PART_LIMIT) {
-        await flushPart();
-        partNo++; partBytes = 0;
-        zip = new ZipWriter(sink);
-      }
-      status.textContent = 'Fișier ' + (i + 1) + ' / ' + items.length + ' · ' + fmt(done) + ' / ' + fmt(total) + (multi ? ' · partea ' + partNo : '');
-      const data = await fetchBytes('/admin/file/' + encodeURIComponent(item.key), controller.signal);
-      await zip.addFile(item.key, data, new Date(item.uploaded));
-      done += item.size; partBytes += item.size;
-      fill.style.width = (total ? done / total * 100 : 100) + '%';
-    }
-
-    if (writable) {
-      await zip.finish();
-      await writable.close();
-      writable = null;
-    } else {
-      await flushPart();
-    }
-    fill.style.width = '100%';
-    status.textContent = 'Gata ✓ ' + items.length + ' fișiere, ' + fmt(done) + (multi ? ', în ' + partNo + ' părți' : '') + '.';
-    if (!writable && links.children.length) note.textContent += ' Dacă descărcarea nu a pornit automat, apasă pe linkurile de mai jos.';
-  } catch (err) {
-    if (writable) { try { await writable.abort(); } catch (e) {} }
-    status.textContent = err.name === 'AbortError' ? 'Descărcare anulată.' : 'Eroare: ' + err.message;
-  } finally {
-    btn.disabled = false;
-    zipAbort = null;
-  }
-}
-
-document.getElementById('zipBtn').onclick = downloadAll;
-document.getElementById('zipCancel').onclick = () => { if (zipAbort) zipAbort.abort(); };
-
-document.getElementById('coupleInput').onchange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const msg = document.getElementById('coupleMsg');
-  msg.textContent = 'Se încarcă…';
-  const res = await fetch('/admin/couple', {
-    method: 'POST',
-    headers: { 'content-type': file.type || 'image/jpeg' },
-    body: file,
-  });
-  msg.textContent = res.ok ? 'Poza mirilor a fost actualizată ✓' : 'Eroare la încărcare.';
-};
-
-load();
-</script>
-</body>
-</html>`;

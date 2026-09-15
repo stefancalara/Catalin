@@ -4,7 +4,15 @@
     {
       "name": "wrangler-dev",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["-y", "wrangler@3", "dev", "--port", "8787"],
+      "runtimeArgs": [
+        "-y",
+        "wrangler@3",
+        "dev",
+        "--port",
+        "8787",
+        "--var",
+        "PLATFORM_HOST:localhost"
+      ],
       "port": 8787
     }
   ]

@@ -2,21 +2,45 @@ name = "nunta-larisa-catalin"
 main = "src/index.js"
 compatibility_date = "2025-08-01"
 
-# Fișierele statice (pagina principală, placeholder-ul pozei)
+# Fișierele statice (qrcode.js, placeholder, poza veche a mirilor)
 [assets]
 directory = "./public"
 binding = "ASSETS"
 
-# Bucket-ul R2 unde se salvează pozele și clipurile
+# Bucket-ul R2 unde se salvează totul (configurații, poze, clipuri, mesaje)
 # Creează-l înainte de deploy:  npx wrangler r2 bucket create nunta-larisa-catalin
 [[r2_buckets]]
 binding = "PHOTOS"
 bucket_name = "nunta-larisa-catalin"
 
 [vars]
-ADMIN_USER = "admin"
-ADMIN_PASS = "casadepiatra"
-# Limita totală de stocare: 10 GB
-MAX_TOTAL_BYTES = "10737418240"
-# Limita per fișier: 100 MB (limita de request a Cloudflare Workers)
+# Numele platformei (apare pe pagina de prezentare, în subsolul paginilor și în panouri)
+BRAND_NAME = "PozeQR"
+# Textul prețului de pe pagina de prezentare
+PRICE_TEXT = "249 lei"
+# Cum te contactează clienții pentru activarea planului complet (apare pe site și în panourile demo)
+CONTACT_TEXT = "Scrie-ne pe WhatsApp sau la contact@pozeqr.ro pentru activare."
+
+# Evenimentul servit la adresa rădăcină (/) a acestui Worker — codurile QR deja
+# tipărite pentru nuntă continuă să funcționeze. Lasă gol pe un Worker nou.
+ROOT_EVENT = "larisa-si-catalin"
+# Domeniul platformei: pe el, / este pagina de prezentare (nu evenimentul rădăcină).
+# Completează după ce legi domeniul (ex. "pozeqr.ro").
+PLATFORM_HOST = ""
+# Adresa completă a platformei, pentru linkul „realizat cu” din subsolul paginilor
+PLATFORM_URL = "https://pozeqr.ro"
+# Eveniment de demonstrație afișat pe pagina de prezentare (slug), opțional
+DEMO_EVENT = ""
+
+# Contul proprietarului platformei (/owner) — schimbă parola!
+OWNER_USER = "admin"
+OWNER_PASS = "casadepiatra"
+
+# Limite: plan demo (500 MB), plan plătit (10 GB), per fișier (100 MB, limita Cloudflare Workers)
+DEMO_MAX_BYTES = "524288000"
+PAID_MAX_BYTES = "10737418240"
 MAX_FILE_BYTES = "104857600"
+
+# SECRET (cheia pentru parole și sesiuni) se setează separat, ca secret, nu aici:
+#   npx wrangler secret put SECRET      (orice șir lung, aleator)
+# Fără el se folosește o cheie derivată din OWNER_PASS — merge, dar e mai slab.
