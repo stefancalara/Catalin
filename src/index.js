@@ -43,6 +43,14 @@ export default {
     const path = url.pathname;
 
     try {
+      // Totul pe HTTPS (echivalentul „Always Use HTTPS” din Cloudflare, dar garantat de Worker)
+      let visitorScheme = '';
+      try { visitorScheme = JSON.parse(request.headers.get('cf-visitor') || '{}').scheme || ''; } catch {}
+      const insecure = url.protocol === 'http:' || visitorScheme === 'http' || request.headers.get('x-forwarded-proto') === 'http';
+      if (insecure && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+        url.protocol = 'https:';
+        return Response.redirect(url.toString(), 301);
+      }
       // www.pozeqr.ro -> pozeqr.ro (un singur host canonic pentru platformă)
       if (env.PLATFORM_HOST && url.hostname === 'www.' + env.PLATFORM_HOST) {
         url.hostname = env.PLATFORM_HOST;
