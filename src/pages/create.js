@@ -119,7 +119,7 @@ export function renderCreatePage(env, url) {
       </div>
       <label class="field">E-mail sau telefon de contact (opțional — pentru activarea planului complet)</label>
       <input type="text" id="contact" maxlength="120">
-      <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off">
+      <input type="text" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true" data-lpignore="true" data-1p-ignore>
     </div>
 
     <button class="btn" type="submit" id="submit">Creează pagina și codul QR →</button>
@@ -202,7 +202,7 @@ $('f').onsubmit = async (e) => {
     }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Eroare');
-    location.href = data.adminUrl + '#personalizare';
+    location.href = (data.adminUrl || data.url || '/') + '#personalizare';
   } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'Creează pagina și codul QR →'; }
 };
 
