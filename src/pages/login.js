@@ -25,12 +25,8 @@ export function renderLoginPage(env, url) {
   h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 2rem; color: var(--verde-inchis); line-height: 1.15; }
   .sub { color: #5b615c; font-size: .95rem; margin: 8px 0 22px; }
   label { display: block; font-size: .8rem; font-weight: 600; color: #4a524d; margin: 14px 0 6px; }
-  .addr { display: flex; align-items: stretch; border: 1px solid var(--linie); border-radius: 10px; overflow: hidden; background: #fff; }
-  .addr span { padding: 11px 0 11px 12px; color: #8a918c; font-size: .95rem; white-space: nowrap; }
   input { width: 100%; font: inherit; font-size: 1rem; padding: 11px 12px; border: 1px solid var(--linie); border-radius: 10px; background: #fff; color: inherit; }
-  .addr input { border: 0; border-radius: 0; padding-left: 4px; min-width: 0; }
   input:focus { outline: 2px solid var(--verde); outline-offset: -1px; }
-  .addr:focus-within { outline: 2px solid var(--verde); outline-offset: -1px; }
   .btn { display: block; width: 100%; margin-top: 22px; background: var(--verde); color: #fff; border: 0; border-radius: 999px; padding: 13px 18px; font: inherit; font-weight: 600; font-size: 1rem; cursor: pointer; }
   .btn:disabled { opacity: .6; cursor: default; }
   .err { color: #b3261e; font-size: .9rem; margin-top: 12px; min-height: 1.3em; }
@@ -46,8 +42,8 @@ export function renderLoginPage(env, url) {
     <h1>Intră în panoul evenimentului</h1>
     <p class="sub">Folosește adresa paginii tale și parola aleasă la creare.</p>
     <label for="slug">Adresa evenimentului</label>
-    <div class="addr"><span>${escapeHtml(url.host)}/e/</span><input id="slug" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="numele-evenimentului" value="${escapeHtml(prefill)}" required></div>
-    <p class="help">Poți lipi și linkul complet, de exemplu ${escapeHtml(url.host)}/e/ana-si-mihai</p>
+    <input id="slug" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="numele-evenimentului" value="${escapeHtml(prefill)}" required>
+    <p class="help">Partea de după <b>/e/</b> din linkul paginii tale, sau linkul complet.</p>
     <label for="pw">Parola</label>
     <input id="pw" name="password" type="password" autocomplete="current-password" required>
     <button class="btn" id="submit" type="submit">Intră în panou →</button>
