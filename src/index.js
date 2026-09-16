@@ -43,6 +43,11 @@ export default {
     const path = url.pathname;
 
     try {
+      // www.pozeqr.ro -> pozeqr.ro (un singur host canonic pentru platformă)
+      if (env.PLATFORM_HOST && url.hostname === 'www.' + env.PLATFORM_HOST) {
+        url.hostname = env.PLATFORM_HOST;
+        return Response.redirect(url.toString(), 301);
+      }
       if (path === '/owner' || path.startsWith('/owner/')) {
         return await handleOwner(request, env, url);
       }

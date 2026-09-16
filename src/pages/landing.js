@@ -104,7 +104,7 @@ export function renderLandingPage(env, url) {
 
 <div class="hero">
   <div>
-    <h1>Toate pozele de la <em>nunta ta</em>, trimise de invitați printr-un cod QR</h1>
+    <h1>Toate pozele de la <em>evenimentul tău</em>, trimise de invitați printr-un cod QR</h1>
     <p>Pui cartonașul cu cod QR pe mese. Invitații scanează, aleg pozele și clipurile din telefon și gata — apar în albumul vostru. Fără aplicație, fără cont, fără limite de invitați.</p>
     <a class="btn" href="/creeaza">Creează pagina ta →</a>
     ${demoEvent ? `<a class="btn ghost" href="${escapeHtml(demoEvent)}" target="_blank">Vezi un exemplu</a>` : ''}

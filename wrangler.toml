@@ -1,6 +1,14 @@
 name = "nunta-larisa-catalin"
 main = "src/index.js"
 compatibility_date = "2025-08-01"
+# Adresa workers.dev rămâne activă: pe ea sunt codurile QR deja tipărite pentru nuntă
+workers_dev = true
+
+# Domeniul platformei (zona pozeqr.ro trebuie să fie activă în contul Cloudflare)
+routes = [
+  { pattern = "pozeqr.ro", custom_domain = true },
+  { pattern = "www.pozeqr.ro", custom_domain = true },
+]
 
 # Fișierele statice (qrcode.js, placeholder, poza veche a mirilor)
 [assets]
@@ -26,15 +34,16 @@ CONTACT_TEXT = "Scrie-ne pe WhatsApp sau la contact@pozeqr.ro pentru activare."
 ROOT_EVENT = "larisa-si-catalin"
 # Domeniul platformei: pe el, / este pagina de prezentare (nu evenimentul rădăcină).
 # Completează după ce legi domeniul (ex. "pozeqr.ro").
-PLATFORM_HOST = ""
+PLATFORM_HOST = "pozeqr.ro"
 # Adresa completă a platformei, pentru linkul „realizat cu” din subsolul paginilor
 PLATFORM_URL = "https://pozeqr.ro"
 # Eveniment de demonstrație afișat pe pagina de prezentare (slug), opțional
 DEMO_EVENT = ""
 
-# Contul proprietarului platformei (/owner) — schimbă parola!
+# Contul proprietarului platformei (/owner). Parola se setează ca secret, nu aici:
+#   npx wrangler secret put OWNER_PASS
+# (fără secret, /owner refuză orice autentificare)
 OWNER_USER = "admin"
-OWNER_PASS = "casadepiatra"
 
 # Limite: plan demo (300 MB ≈ 80 de poze), plan plătit (10 GB), per fișier (100 MB, limita Cloudflare Workers)
 DEMO_MAX_BYTES = "314572800"
