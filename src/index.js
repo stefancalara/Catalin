@@ -77,7 +77,6 @@ export default {
         if (path === '/cover' || path.startsWith('/api/')) return await handleEvent(request, env, url, root, path, '');
       }
 
-      if (path === '/favicon.ico') return new Response(null, { status: 204 });
       if (path === '/' || path === '/index.html') return html(renderLandingPage(env, url));
       if (path === '/creeaza') return html(renderCreatePage(env, url));
 
@@ -530,7 +529,7 @@ async function serveObject(env, key, forceDownload, request, downloadName) {
 
 function notFoundPage(env, msg) {
   const brand = env.BRAND_NAME || 'Platforma';
-  return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Nu am găsit pagina</title>
+  return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><title>Nu am găsit pagina</title>
 <style>body{font-family:Georgia,serif;background:#faf8f3;color:#333;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px}h1{font-weight:normal;color:#0a4a3b}a{color:#0f6e57}</style></head>
 <body><div><h1>${escapeHtml(msg || 'Evenimentul nu există (sau a fost șters).')}</h1><p><a href="/">${escapeHtml(brand)} — pagina principală</a></p></div></body></html>`;
 }

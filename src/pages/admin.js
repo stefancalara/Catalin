@@ -95,7 +95,7 @@ export function renderLoginPage(ev, base) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Admin — ${escapeHtml(title)}</title>
 <meta name="robots" content="noindex">
 <style>${SHELL_CSS}
@@ -150,7 +150,7 @@ export function renderAdminPage(ev, env, opts) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Admin — ${escapeHtml(title)}</title>
 <meta name="robots" content="noindex">
 <script src="/qrcode.js"></script>

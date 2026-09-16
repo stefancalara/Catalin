@@ -26,7 +26,7 @@ export function renderLandingPage(env, url) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>${escapeHtml(brand)} — Cod QR pentru poze de la nuntă, botez sau eveniment</title>
 <meta name="description" content="Colectează pozele și clipurile invitaților cu un simplu cod QR: fără aplicație, fără cont. Pagină personalizată cu template-uri și culori, cartonașe QR de printat, slideshow live, descărcare totală ZIP. ${escapeHtml(price)} per eveniment.">
 <link rel="canonical" href="${escapeHtml(url.origin)}/">
@@ -45,6 +45,13 @@ export function renderLandingPage(env, url) {
   header nav a.cta { background: var(--verde); color: #fff; padding: 9px 16px; border-radius: 999px; }
   .hero { max-width: 1100px; margin: 0 auto; padding: 40px 24px 30px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
   @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) {
+    header { padding: 12px 16px; gap: 12px; }
+    .logo { font-size: 1.45rem; white-space: nowrap; }
+    header nav { display: flex; align-items: center; }
+    header nav a:not(.cta) { display: none; }
+    header nav a.cta { margin-left: 0; padding: 8px 14px; font-size: .85rem; white-space: nowrap; }
+  }
   .hero h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.1; color: var(--verde-inchis); }
   .hero h1 em { font-style: italic; color: var(--verde); }
   .hero p { margin: 18px 0 26px; color: #5b615c; font-size: 1.05rem; max-width: 520px; }

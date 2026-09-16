@@ -503,7 +503,7 @@ export function renderGuestPage(ev, opts) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>${escapeHtml(plainTitle)} — ${escapeHtml(typeInfo.label)}</title>
 <meta name="description" content="Încarcă pozele și clipurile tale de la ${escapeHtml(typeInfo.word)} — ${escapeHtml(plainTitle)}.">
 <meta name="robots" content="noindex">
@@ -708,7 +708,7 @@ export function renderPrintPage(ev, opts) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Cartonașe QR — ${escapeHtml(plainTitle)}</title>
 <meta name="robots" content="noindex">
 ${fontLink(tpl)}
@@ -835,7 +835,7 @@ export function renderSlideshowPage(ev, opts) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Slideshow — ${escapeHtml(plainTitle)}</title>
 <meta name="robots" content="noindex">
 ${fontLink(tpl)}
@@ -934,7 +934,7 @@ export function renderGalleryPage(ev, opts) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Galerie — ${escapeHtml(plainTitle)}</title>
 <meta name="robots" content="noindex">
 ${fontLink(tpl)}

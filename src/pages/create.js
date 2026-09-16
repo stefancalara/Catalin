@@ -15,7 +15,7 @@ export function renderCreatePage(env, url) {
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Creează evenimentul tău — ${escapeHtml(brand)}</title>
 <meta name="description" content="Creează în 2 minute pagina cu cod QR prin care invitații îți trimit pozele și clipurile de la nuntă, botez sau orice eveniment.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
