@@ -5,6 +5,7 @@
  * Rute publice:
  *   GET  /                          — pagina de prezentare (sau evenimentul ROOT_EVENT, vezi wrangler.toml)
  *   GET  /creeaza                   — creează un eveniment nou
+ *   GET  /login                     — intră în panoul unui eveniment (adresă + parolă)
  *   POST /api/events                — API creare eveniment
  *   GET  /api/slug-check?slug=      — verifică dacă adresa e liberă
  *
@@ -35,6 +36,7 @@ import { renderGuestPage, renderPrintPage, renderGalleryPage, renderSlideshowPag
 import { renderAdminPage, renderLoginPage } from './pages/admin.js';
 import { renderLandingPage } from './pages/landing.js';
 import { renderCreatePage } from './pages/create.js';
+import { renderLoginPage as renderPlatformLoginPage } from './pages/login.js';
 import { renderOwnerPage } from './pages/owner.js';
 
 export default {
@@ -87,6 +89,7 @@ export default {
 
       if (path === '/' || path === '/index.html') return html(renderLandingPage(env, url));
       if (path === '/creeaza') return html(renderCreatePage(env, url));
+      if (path === '/login') return html(renderPlatformLoginPage(env, url), 200, { 'cache-control': 'no-store' });
 
       return env.ASSETS.fetch(request);
     } catch (err) {

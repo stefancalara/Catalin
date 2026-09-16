@@ -43,13 +43,15 @@ export function renderLandingPage(env, url) {
   .logo { font-family: 'Cormorant Garamond', serif; font-size: 1.7rem; color: var(--verde-inchis); text-decoration: none; font-weight: 600; }
   header nav a { margin-left: 18px; text-decoration: none; color: #555; font-size: .9rem; }
   header nav a.cta { background: var(--verde); color: #fff; padding: 9px 16px; border-radius: 999px; }
+  header nav a.login { color: var(--verde); font-weight: 500; }
   .hero { max-width: 1100px; margin: 0 auto; padding: 40px 24px 30px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
   @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
   @media (max-width: 640px) {
     header { padding: 12px 16px; gap: 12px; }
     .logo { font-size: 1.45rem; white-space: nowrap; }
     header nav { display: flex; align-items: center; }
-    header nav a:not(.cta) { display: none; }
+    header nav a:not(.cta):not(.login) { display: none; }
+    header nav a.login { margin: 0 12px 0 0; font-size: .85rem; white-space: nowrap; }
     header nav a.cta { margin-left: 0; padding: 8px 14px; font-size: .85rem; white-space: nowrap; }
   }
   .hero h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.1; color: var(--verde-inchis); }
@@ -106,7 +108,7 @@ export function renderLandingPage(env, url) {
 <body>
 <header>
   <a class="logo" href="/">${escapeHtml(brand)}</a>
-  <nav><a href="#cum">Cum funcționează</a><a href="#template">Template-uri</a><a href="#pret">Preț</a><a class="cta" href="/creeaza">Creează gratuit</a></nav>
+  <nav><a href="#cum">Cum funcționează</a><a href="#template">Template-uri</a><a href="#pret">Preț</a><a class="login" href="/login">Intră în panou</a><a class="cta" href="/creeaza">Creează gratuit</a></nav>
 </header>
 
 <div class="hero">
