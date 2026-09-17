@@ -7,6 +7,7 @@
  *   GET  /creeaza                   — creează un eveniment nou
  *   GET  /login                     — intră în panoul unui eveniment (adresă + parolă)
  *   POST /api/events                — API creare eveniment
+ *   POST /api/login                 — autentificare cu e-mail + parolă (cookie pentru panoul evenimentului)
  *   GET  /api/slug-check?slug=      — verifică dacă adresa e liberă
  *
  * Rute per eveniment (/e/<slug>):
@@ -64,6 +65,9 @@ export default {
       if (path === '/api/events' && request.method === 'POST') {
         return await createEvent(request, env, url);
       }
+      if (path === '/api/login' && request.method === 'POST') {
+        return await loginByEmail(request, env);
+      }
       if (path === '/api/slug-check' && request.method === 'GET') {
         const slug = url.searchParams.get('slug') || '';
         if (!isValidSlug(slug)) return json({ ok: false, reason: 'invalid' });
@@ -110,11 +114,14 @@ async function createEvent(request, env, url) {
   if (!isValidSlug(slug)) return json({ error: 'Adresa poate conține doar litere mici, cifre și cratime (3–40 caractere).' }, 400);
   if (!String(body.name1 || '').trim()) return json({ error: 'Completează numele.' }, 400);
   if (typeof body.password !== 'string' || body.password.length < 6) return json({ error: 'Parola trebuie să aibă cel puțin 6 caractere.' }, 400);
+  const email = store.normalizeEmail(body.email);
+  if (!store.isValidEmail(email)) return json({ error: 'Introdu o adresă de e-mail validă (cu ea intri în panou).' }, 400);
   if (await store.eventExists(env, slug)) return json({ error: 'Adresa aceasta e deja folosită. Alege alta.' }, 409);
 
   const secret = serverSecret(env);
-  const ev = await store.buildEvent(env, secret, { ...body, slug });
+  const ev = await store.buildEvent(env, secret, { ...body, slug, email });
   await store.putEvent(env, ev);
+  await store.linkEmail(env, email, slug);
 
   const cookie = await sessionCookie(request, secret, ev);
   return json({ ok: true, url: `/e/${slug}`, adminUrl: `/e/${slug}/admin` }, 200, { 'set-cookie': cookie });
@@ -286,6 +293,11 @@ async function handleAdminApi(request, env, url, ev, sub, secret) {
     if (method === 'POST') {
       let body;
       try { body = await request.json(); } catch (e) { return json({ error: 'Date invalide.' }, 400); }
+      if (typeof body.email === 'string') {
+        const next = store.normalizeEmail(body.email);
+        if (next && !store.isValidEmail(next)) return json({ error: 'Adresa de e-mail nu arată bine.' }, 400);
+        await store.setEventEmail(env, ev, next);
+      }
       store.applySettings(ev, body);
       await store.putEvent(env, ev);
       return json({ ok: true, event: store.publicEvent(ev) });
@@ -338,6 +350,30 @@ async function handleAdminApi(request, env, url, ev, sub, secret) {
   }
 
   return json({ error: 'Rută necunoscută.' }, 404);
+}
+
+/* ---------- Autentificare cu e-mail + parolă ---------- */
+
+async function loginByEmail(request, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: 'Date invalide.' }, 400); }
+  const email = store.normalizeEmail(body.email);
+  const password = String(body.password || '');
+  const wrong = () => json({ error: 'E-mail sau parolă greșită.' }, 401);
+  if (!store.isValidEmail(email) || !password) return wrong();
+  const secret = serverSecret(env);
+  const matches = [];
+  for (const slug of await store.slugsForEmail(env, email)) {
+    const ev = await store.getEvent(env, slug);
+    if (ev && await verifyPassword(secret, password, ev.passwordHash)) matches.push(ev);
+  }
+  if (!matches.length) return wrong();
+  if (matches.length === 1) {
+    const ev = matches[0];
+    return json({ ok: true, adminUrl: `/e/${ev.slug}/admin` }, 200, { 'set-cookie': await sessionCookie(request, secret, ev) });
+  }
+  // Mai multe evenimente pe același e-mail și aceeași parolă: clientul alege
+  return json({ ok: true, choose: matches.map(ev => ({ slug: ev.slug, name: [ev.name1, ev.name2].filter(Boolean).join(' & '), adminUrl: `/e/${ev.slug}/admin` })) });
 }
 
 /* ---------- Panoul proprietarului ---------- */
@@ -393,6 +429,7 @@ async function handleOwner(request, env, url) {
       if (Number(body.maxTotalBytes) > 0) ev.maxTotalBytes = Number(body.maxTotalBytes);
       if (typeof body.note === 'string') ev.note = body.note.slice(0, 300);
       if (typeof body.password === 'string' && body.password.length >= 6) ev.passwordHash = await hashPassword(secret, body.password);
+      if (typeof body.email === 'string') { const next = store.normalizeEmail(body.email); if (!next || store.isValidEmail(next)) await store.setEventEmail(env, ev, next); }
       await store.putEvent(env, ev);
       return json({ ok: true, event: store.publicEvent(ev) });
     }

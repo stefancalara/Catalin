@@ -14,6 +14,41 @@ export const configKey = slug => `ev/${slug}/_config.json`;
 export const coverKey = slug => `ev/${slug}/_cover`;
 export const filesPrefix = slug => `ev/${slug}/f/`;
 export const messagesPrefix = slug => `ev/${slug}/m/`;
+/* Index e-mail -> evenimente, pentru autentificarea cu e-mail și parolă:
+   idx/email/<e-mail>.json  — { slugs: [...] } */
+export const emailKey = email => `idx/email/${encodeURIComponent(email)}.json`;
+
+export function normalizeEmail(s) { return String(s || '').trim().toLowerCase().slice(0, 120); }
+export function isValidEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s); }
+
+export async function slugsForEmail(env, email) {
+  if (!email) return [];
+  const obj = await env.PHOTOS.get(emailKey(email));
+  if (!obj) return [];
+  try { const d = await obj.json(); return Array.isArray(d.slugs) ? d.slugs : []; } catch (e) { return []; }
+}
+async function putEmailIndex(env, email, slugs) {
+  if (!slugs.length) { await env.PHOTOS.delete(emailKey(email)); return; }
+  await env.PHOTOS.put(emailKey(email), JSON.stringify({ slugs }), { httpMetadata: { contentType: 'application/json' } });
+}
+export async function linkEmail(env, email, slug) {
+  if (!email) return;
+  const slugs = await slugsForEmail(env, email);
+  if (!slugs.includes(slug)) { slugs.push(slug); await putEmailIndex(env, email, slugs); }
+}
+export async function unlinkEmail(env, email, slug) {
+  if (!email) return;
+  await putEmailIndex(env, email, (await slugsForEmail(env, email)).filter(s => s !== slug));
+}
+/** Schimbă e-mailul unui eveniment și ține indexul la zi. */
+export async function setEventEmail(env, ev, email) {
+  const next = normalizeEmail(email);
+  if (next === (ev.email || '')) return ev;
+  if (ev.email) await unlinkEmail(env, ev.email, ev.slug);
+  ev.email = next;
+  if (next) await linkEmail(env, next, ev.slug);
+  return ev;
+}
 
 export async function getEvent(env, slug) {
   if (!isValidSlug(slug)) return null;
@@ -75,6 +110,7 @@ export async function buildEvent(env, secret, input) {
     maxTotalBytes: demoLimit(env),
     maxFileBytes: fileLimit(env),
     passwordHash: await hashPassword(secret, input.password),
+    email: normalizeEmail(input.email),
     contact: String(input.contact || '').trim().slice(0, 120),
     createdAt: new Date().toISOString(),
     note: '',
@@ -165,6 +201,8 @@ export async function listMessages(env, slug) {
 
 /** Șterge tot ce ține de un eveniment (în loturi de 1000 de chei). */
 export async function deleteEvent(env, slug) {
+  const ev = await getEvent(env, slug);
+  if (ev && ev.email) { try { await unlinkEmail(env, ev.email, slug); } catch (e) {} }
   const prefix = prefixOf(slug);
   let cursor, deleted = 0;
   do {

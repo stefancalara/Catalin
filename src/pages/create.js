@@ -112,12 +112,15 @@ export function renderCreatePage(env, url) {
     </div>
 
     <div class="step">
-      <h2><span>5</span> Parola panoului de administrare</h2>
+      <h2><span>5</span> Contul tău</h2>
+      <p class="help">Cu e-mailul și parola de aici intri în panoul de administrare al paginii.</p>
+      <label class="field">E-mail</label>
+      <input type="email" id="email" maxlength="120" required autocomplete="email" inputmode="email">
       <div class="two">
         <div><label class="field">Parola (min. 6 caractere)</label><input type="password" id="pw1" minlength="6" required autocomplete="new-password"></div>
         <div><label class="field">Repetă parola</label><input type="password" id="pw2" minlength="6" required autocomplete="new-password"></div>
       </div>
-      <label class="field">E-mail sau telefon de contact (opțional — pentru activarea planului complet)</label>
+      <label class="field">Telefon sau alt contact (opțional — pentru activarea planului complet)</label>
       <input type="text" id="contact" maxlength="120">
       <input type="text" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true" data-lpignore="true" data-1p-ignore>
     </div>
@@ -198,7 +201,7 @@ $('f').onsubmit = async (e) => {
       type, template, name1: $('name1').value, name2: $('name2').value, date: $('date').value, slug: $('slug').value,
       colors: { primary: $('c_primary').value, accent: $('c_accent').value, bg: $('c_bg').value },
       guestbook: $('guestbook').checked, publicGallery: $('publicGallery').checked,
-      password: $('pw1').value, contact: $('contact').value, website: document.querySelector('.hp').value,
+      email: $('email').value, password: $('pw1').value, contact: $('contact').value, website: document.querySelector('.hp').value,
     }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Eroare');

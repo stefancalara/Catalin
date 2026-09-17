@@ -53,7 +53,7 @@ export function renderOwnerPage(env, url) {
   <div class="box">
     <h2>Evenimente</h2>
     <div style="overflow-x:auto"><table>
-      <thead><tr><th>Eveniment</th><th>Tip</th><th>Creat</th><th>Plan</th><th>Fișiere</th><th>Spațiu</th><th>Contact / notă</th><th>Acțiuni</th></tr></thead>
+      <thead><tr><th>Eveniment</th><th>Tip</th><th>Creat</th><th>Plan</th><th>Fișiere</th><th>Spațiu</th><th>E-mail / contact / notă</th><th>Acțiuni</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
   </div>
@@ -106,11 +106,12 @@ async function load() {
         (e.plan === 'paid' ? '<button class="btn secondary" data-a="demo">→ demo</button>' : '<button class="btn" data-a="paid">Activează</button>') +
         '<button class="btn secondary" data-a="limit">Limită</button>' +
         '<button class="btn secondary" data-a="note">Notă</button>' +
+        '<button class="btn secondary" data-a="email">E-mail</button>' +
         '<button class="btn secondary" data-a="pw">Parolă</button>' +
         '<button class="btn danger" data-a="del">Șterge</button>' +
       '</td>';
     tr.querySelector('b').textContent = title;
-    tr.querySelector('.c').textContent = e.contact || '—';
+    tr.querySelector('.c').textContent = [e.email, e.contact].filter(Boolean).join(' · ') || '—';
     tr.querySelector('.n').textContent = e.note || '';
     tr.querySelectorAll('button').forEach(b => b.onclick = () => action(b.dataset.a, e));
     rows.appendChild(tr);
@@ -126,6 +127,7 @@ async function action(a, e) {
     if (a === 'paid' || a === 'demo') { await api('/event/' + e.slug, jsonReq('PATCH', { plan: a })); }
     if (a === 'limit') { const gb = prompt('Limita de spațiu în GB pentru ' + e.slug + ':', (e.maxTotalBytes / 1073741824).toFixed(1)); if (!gb) return; await api('/event/' + e.slug, jsonReq('PATCH', { maxTotalBytes: Math.round(Number(gb) * 1073741824) })); }
     if (a === 'note') { const n = prompt('Notă internă (plată, factură etc.):', e.note || ''); if (n === null) return; await api('/event/' + e.slug, jsonReq('PATCH', { note: n })); }
+    if (a === 'email') { const v = prompt('E-mailul cu care clientul intră în panou:', e.email || ''); if (v === null) return; await api('/event/' + e.slug, jsonReq('PATCH', { email: v })); }
     if (a === 'pw') { const p = prompt('Parola nouă pentru panoul evenimentului (min. 6):'); if (!p) return; await api('/event/' + e.slug, jsonReq('PATCH', { password: p })); alert('Parola a fost schimbată.'); }
     if (a === 'del') { if (prompt('Șterge DEFINITIV evenimentul și toate fișierele. Scrie adresa pentru confirmare:') !== e.slug) return; await api('/event/' + e.slug, { method: 'DELETE' }); }
     load();

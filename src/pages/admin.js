@@ -318,8 +318,10 @@ export function renderAdminPage(ev, env, opts) {
       <div class="row" style="margin-top:10px"><button class="btn" id="pwBtn">Schimbă parola</button><span class="msg" id="pwMsg"></span></div>
     </div>
     <div class="box">
-      <h2>Contact</h2>
-      <label class="field">E-mail sau telefon (doar pentru noi, ca să te putem contacta)</label>
+      <h2>Cont și contact</h2>
+      <label class="field">E-mail de autentificare (cu el intri în panou, de pe pagina principală)</label>
+      <input type="email" id="f_email" maxlength="120" autocomplete="email">
+      <label class="field">Telefon sau alt contact (doar pentru noi, ca să te putem contacta)</label>
       <input type="text" id="f_contact" maxlength="120">
       <div class="row" style="margin-top:10px"><button class="btn secondary" id="contactBtn">Salvează</button><span class="msg" id="contactMsg"></span></div>
     </div>
@@ -535,6 +537,7 @@ function fillForm() {
   $('f_intro').checked = ev.intro !== false; $('f_guestbook').checked = !!ev.guestbook; $('f_publicGallery').checked = !!ev.publicGallery;
   $('c_primary').value = ev.colors.primary; $('c_accent').value = ev.colors.accent; $('c_bg').value = ev.colors.bg;
   $('f_contact').value = ev.contact || '';
+  $('f_email').value = ev.email || '';
   renderTemplates();
 }
 function renderTemplates() {
@@ -663,7 +666,7 @@ $('pwBtn').onclick = async () => {
 };
 $('contactBtn').onclick = async () => {
   const msg = $('contactMsg');
-  try { const r = await post('/settings', { contact: $('f_contact').value }); ev = r.event; msg.textContent = 'Salvat ✓'; } catch (e) { msg.textContent = e.message; }
+  try { const r = await post('/settings', { contact: $('f_contact').value, email: $('f_email').value }); ev = r.event; msg.textContent = 'Salvat ✓'; } catch (e) { msg.textContent = e.message; }
 };
 $('delBtn').onclick = async () => {
   const msg = $('delMsg');

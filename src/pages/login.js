@@ -25,7 +25,7 @@ export function renderLoginPage(env, url) {
   h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 2rem; color: var(--verde-inchis); line-height: 1.15; }
   .sub { color: #5b615c; font-size: .95rem; margin: 8px 0 22px; }
   label { display: block; font-size: .8rem; font-weight: 600; color: #4a524d; margin: 14px 0 6px; }
-  input { width: 100%; font: inherit; font-size: 1rem; padding: 11px 12px; border: 1px solid var(--linie); border-radius: 10px; background: #fff; color: inherit; }
+  input:not([type=checkbox]) { width: 100%; font: inherit; font-size: 1rem; padding: 11px 12px; border: 1px solid var(--linie); border-radius: 10px; background: #fff; color: inherit; }
   input:focus { outline: 2px solid var(--verde); outline-offset: -1px; }
   .btn { display: block; width: 100%; margin-top: 22px; background: var(--verde); color: #fff; border: 0; border-radius: 999px; padding: 13px 18px; font: inherit; font-weight: 600; font-size: 1rem; cursor: pointer; }
   .btn:disabled { opacity: .6; cursor: default; }
@@ -38,21 +38,50 @@ export function renderLoginPage(env, url) {
 <body>
 <header><a class="logo" href="/">${escapeHtml(brand)}</a></header>
 <main>
-  <form class="card" id="f" autocomplete="on">
+  <form class="card" id="f">
     <h1>Intră în panoul evenimentului</h1>
-    <p class="sub">Folosește adresa paginii tale și parola aleasă la creare.</p>
-    <label for="slug">Adresa evenimentului</label>
-    <input id="slug" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="numele-evenimentului" value="${escapeHtml(prefill)}" required>
-    <p class="help">Partea de după <b>/e/</b> din linkul paginii tale, sau linkul complet.</p>
+    <p class="sub" id="sub">Folosește e-mailul și parola alese când ai creat pagina.</p>
+
+    <div id="modeEmail">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="nume@exemplu.ro">
+    </div>
+    <div id="modeSlug" hidden>
+      <label for="slug">Adresa evenimentului</label>
+      <input id="slug" name="username" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="numele-evenimentului" value="${escapeHtml(prefill)}">
+      <p class="help">Partea de după <b>/e/</b> din linkul paginii tale, sau linkul complet.</p>
+    </div>
+
     <label for="pw">Parola</label>
     <input id="pw" name="password" type="password" autocomplete="current-password" required>
     <button class="btn" id="submit" type="submit">Intră în panou →</button>
     <div class="err" id="err" aria-live="polite"></div>
+
+    <div id="choose" hidden>
+      <p class="sub">Ai mai multe evenimente pe acest e-mail. Alege unul:</p>
+      <div id="chooseList"></div>
+    </div>
+
+    <p class="foot"><a href="#" id="toggle">Intră cu adresa evenimentului în loc de e-mail</a></p>
     <p class="foot">Nu ai încă un eveniment? <a href="/creeaza">Creează unul gratuit</a></p>
   </form>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
+let mode = ${prefill ? "'slug'" : "'email'"};
+function setMode(m) {
+  mode = m;
+  $('modeEmail').hidden = m !== 'email';
+  $('modeSlug').hidden = m !== 'slug';
+  $('email').required = m === 'email';
+  $('slug').required = m === 'slug';
+  $('sub').textContent = m === 'email' ? 'Folosește e-mailul și parola alese când ai creat pagina.' : 'Pentru paginile create fără e-mail: adresa paginii și parola.';
+  $('toggle').textContent = m === 'email' ? 'Intră cu adresa evenimentului în loc de e-mail' : 'Intră cu e-mail și parolă';
+  $('err').textContent = ''; $('choose').hidden = true;
+}
+$('toggle').onclick = (e) => { e.preventDefault(); setMode(mode === 'email' ? 'slug' : 'email'); };
+setMode(mode);
+
 function toSlug(v) {
   v = String(v || '').trim().toLowerCase();
   const m = /\\/e\\/([a-z0-9-]+)/.exec(v);
@@ -60,18 +89,40 @@ function toSlug(v) {
   return v.replace(/^https?:\\/\\//, '').replace(/^[^/]*\\//, '').replace(/[?#].*$/, '').replace(/\\/.*$/, '');
 }
 $('slug').addEventListener('blur', () => { const s = toSlug($('slug').value); if (s) $('slug').value = s; });
+
+async function loginSlug(slug, password) {
+  const res = await fetch('/e/' + slug + '/admin/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password }) });
+  if (res.status === 404) throw new Error('Nu există niciun eveniment la adresa aceasta.');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Nu am putut intra. Încearcă din nou.');
+  return '/e/' + slug + '/admin';
+}
+
 $('f').onsubmit = async (e) => {
   e.preventDefault();
-  const err = $('err'); err.textContent = '';
-  const slug = toSlug($('slug').value);
-  if (!/^[a-z0-9-]{3,40}$/.test(slug)) { err.textContent = 'Adresa nu arată bine. Introdu doar numele scurt, de exemplu ana-si-mihai.'; return; }
+  const err = $('err'); err.textContent = ''; $('choose').hidden = true;
+  const password = $('pw').value;
   const btn = $('submit'); btn.disabled = true; btn.textContent = 'Se verifică…';
   try {
-    const res = await fetch('/e/' + slug + '/admin/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: $('pw').value }) });
-    if (res.status === 404) throw new Error('Nu există niciun eveniment la adresa aceasta.');
+    if (mode === 'slug') {
+      const slug = toSlug($('slug').value);
+      if (!/^[a-z0-9-]{3,40}$/.test(slug)) throw new Error('Adresa nu arată bine. Introdu doar numele scurt, de exemplu ana-si-mihai.');
+      location.href = await loginSlug(slug, password);
+      return;
+    }
+    const res = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: $('email').value, password }) });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Nu am putut intra. Încearcă din nou.');
-    location.href = '/e/' + slug + '/admin';
+    if (data.adminUrl) { location.href = data.adminUrl; return; }
+    const list = $('chooseList'); list.innerHTML = '';
+    for (const ev of data.choose || []) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.style.marginTop = '10px';
+      b.textContent = (ev.name || ev.slug) + ' →';
+      b.onclick = async () => { try { location.href = await loginSlug(ev.slug, password); } catch (ex) { err.textContent = ex.message; } };
+      list.appendChild(b);
+    }
+    $('choose').hidden = false;
+    btn.disabled = false; btn.textContent = 'Intră în panou →';
   } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'Intră în panou →'; }
 };
 </script>
