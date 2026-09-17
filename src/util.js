@@ -1,16 +1,26 @@
 /* ---------- Utilitare comune ---------- */
 
+/* Construiește antetele; o valoare de tip listă (ex. mai multe set-cookie) se adaugă pe rând. */
+export function buildHeaders(base, extraHeaders = {}) {
+  const h = new Headers(base);
+  for (const [k, v] of Object.entries(extraHeaders)) {
+    if (Array.isArray(v)) v.forEach(x => h.append(k, x));
+    else if (v !== undefined && v !== null) h.set(k, v);
+  }
+  return h;
+}
+
 export function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8', ...extraHeaders },
+    headers: buildHeaders({ 'content-type': 'application/json; charset=utf-8' }, extraHeaders),
   });
 }
 
 export function html(body, status = 200, extraHeaders = {}) {
   return new Response(body, {
     status,
-    headers: { 'content-type': 'text/html; charset=utf-8', ...extraHeaders },
+    headers: buildHeaders({ 'content-type': 'text/html; charset=utf-8' }, extraHeaders),
   });
 }
 

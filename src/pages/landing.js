@@ -5,7 +5,7 @@
 import { escapeHtml, approxPhotos } from '../util.js';
 import { TEMPLATES } from '../templates.js';
 
-export function renderLandingPage(env, url) {
+export function renderLandingPage(env, url, me = null) {
   const brand = env.BRAND_NAME || 'PozeQR';
   const price = env.PRICE_TEXT || '249 lei';
   const demoBytes = Number(env.DEMO_MAX_BYTES || 314572800);
@@ -108,7 +108,7 @@ export function renderLandingPage(env, url) {
 <body>
 <header>
   <a class="logo" href="/">${escapeHtml(brand)}</a>
-  <nav><a href="#cum">Cum funcționează</a><a href="#template">Template-uri</a><a href="#pret">Preț</a><a class="login" href="/login">Intră în panou</a><a class="cta" href="/creeaza">Creează gratuit</a></nav>
+  <nav><a href="#cum">Cum funcționează</a><a href="#template">Template-uri</a><a href="#pret">Preț</a>${me ? `<a class="login" href="/e/${escapeHtml(me.slug)}/admin" title="${escapeHtml(me.name)}">Panoul meu</a>` : `<a class="login" href="/login">Intră în panou</a>`}<a class="cta" href="/creeaza">Creează gratuit</a></nav>
 </header>
 
 <div class="hero">

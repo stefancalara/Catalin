@@ -91,9 +91,13 @@ export default {
         if (path === '/cover' || path.startsWith('/api/')) return await handleEvent(request, env, url, root, path, '');
       }
 
-      if (path === '/' || path === '/index.html') return html(renderLandingPage(env, url));
+      if (path === '/' || path === '/index.html') return html(renderLandingPage(env, url, await currentUser(request, env)), 200, { 'cache-control': 'no-store' });
       if (path === '/creeaza') return html(renderCreatePage(env, url));
-      if (path === '/login') return html(renderPlatformLoginPage(env, url), 200, { 'cache-control': 'no-store' });
+      if (path === '/login') {
+        const me = await currentUser(request, env);
+        if (me) return redirect(`/e/${me.slug}/admin`);
+        return html(renderPlatformLoginPage(env, url), 200, { 'cache-control': 'no-store' });
+      }
 
       return env.ASSETS.fetch(request);
     } catch (err) {
@@ -200,7 +204,11 @@ async function handleEvent(request, env, url, slug, rest, base) {
     return json({ ok: true }, 200, { 'set-cookie': await sessionCookie(request, secret, ev) });
   }
   if (rest === '/admin/logout' && method === 'POST') {
-    return json({ ok: true }, 200, { 'set-cookie': cookieHeader(cookieName(slug), '', { path: publicBase, maxAge: 0, secure: isSecure(request) }) });
+    return json({ ok: true }, 200, { 'set-cookie': [
+      cookieHeader(cookieName(slug), '', { path: publicBase, maxAge: 0, secure: isSecure(request) }),
+      cookieHeader(cookieName(slug), '', { path: `/e/${slug}`, maxAge: 0, secure: isSecure(request) }),
+      cookieHeader(ME_COOKIE, '', { path: '/', maxAge: 0, secure: isSecure(request) }),
+    ] });
   }
   if (rest === '/admin' && method === 'GET') {
     if (!(await validSession(request, secret, ev))) return html(renderLoginPage(ev, publicBase), 401);
@@ -481,19 +489,50 @@ async function handleOwner(request, env, url) {
 
 function cookieName(slug) { return 'adm_' + slug.replace(/-/g, '_'); }
 
+/* Cookie la nivel de platformă (Path=/): ține minte ultimul eveniment în care s-a
+   autentificat clientul, ca pagina principală și /login să îl recunoască. */
+const ME_COOKIE = 'pozeqr_me';
+
+async function sessionToken(secret, ev, exp) {
+  return hmacHex(secret, `adm:${ev.slug}:${exp}:${ev.passwordHash}`);
+}
 async function sessionCookie(request, secret, ev) {
   const exp = Date.now() + 30 * 86400000;
-  const sig = await hmacHex(secret, `adm:${ev.slug}:${exp}:${ev.passwordHash}`);
-  return cookieHeader(cookieName(ev.slug), `${exp}.${sig}`, { path: `/e/${ev.slug}`, secure: isSecure(request) });
+  const sig = await sessionToken(secret, ev, exp);
+  const secure = isSecure(request);
+  return [
+    cookieHeader(cookieName(ev.slug), `${exp}.${sig}`, { path: `/e/${ev.slug}`, secure }),
+    cookieHeader(ME_COOKIE, `${ev.slug}.${exp}.${sig}`, { path: '/', secure }),
+  ];
+}
+async function tokenValid(secret, ev, exp, sig) {
+  if (!exp || !sig || Number(exp) < Date.now()) return false;
+  return timingSafeEqual(sig, await sessionToken(secret, ev, exp));
+}
+/** Clientul recunoscut din cookie-ul de platformă: { slug, name } sau null. */
+async function currentUser(request, env) {
+  const me = parseCookies(request)[ME_COOKIE];
+  if (!me) return null;
+  const [slug, exp, sig] = me.split('.');
+  if (!isValidSlug(slug || '')) return null;
+  const ev = await store.getEvent(env, slug);
+  if (!ev || !(await tokenValid(serverSecret(env), ev, exp, sig))) return null;
+  return { slug, name: [ev.name1, ev.name2].filter(Boolean).join(' & ') || slug };
 }
 
 async function validSession(request, secret, ev) {
-  const value = parseCookies(request)[cookieName(ev.slug)];
-  if (!value) return false;
-  const [exp, sig] = value.split('.');
-  if (!exp || !sig || Number(exp) < Date.now()) return false;
-  const expected = await hmacHex(secret, `adm:${ev.slug}:${exp}:${ev.passwordHash}`);
-  return timingSafeEqual(sig, expected);
+  const cookies = parseCookies(request);
+  const own = cookies[cookieName(ev.slug)];
+  if (own) {
+    const [exp, sig] = own.split('.');
+    if (await tokenValid(secret, ev, exp, sig)) return true;
+  }
+  const me = cookies[ME_COOKIE];
+  if (me) {
+    const [slug, exp, sig] = me.split('.');
+    if (slug === ev.slug && await tokenValid(secret, ev, exp, sig)) return true;
+  }
+  return false;
 }
 
 async function slideshowKeyFor(secret, ev) {
