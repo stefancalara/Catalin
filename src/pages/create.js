@@ -34,7 +34,7 @@ export function renderCreatePage(env, url) {
   .step h2 { font-size: 1rem; color: var(--verde-inchis); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
   .step h2 span { background: var(--verde); color: #fff; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; }
   label.field { display: block; font-size: .82rem; color: #555; margin: 10px 0 4px; }
-  input[type=text], input[type=password] { width: 100%; font-family: inherit; font-size: 1rem; padding: 11px 13px; border: 1px solid var(--linie); border-radius: 10px; background: #fff; }
+  input[type=text], input[type=email], input[type=password] { width: 100%; font-family: inherit; font-size: 1rem; padding: 11px 13px; border: 1px solid var(--linie); border-radius: 10px; background: #fff; }
   input:focus { outline: 2px solid rgba(15,110,87,.25); border-color: var(--verde); }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
@@ -116,7 +116,7 @@ export function renderCreatePage(env, url) {
       <p class="help">Cu e-mailul și parola de aici intri în panoul de administrare al paginii.</p>
       <label class="field">E-mail</label>
       <input type="email" id="email" maxlength="120" required autocomplete="email" inputmode="email">
-      <div class="two">
+      <div class="two" style="margin-top:12px">
         <div><label class="field">Parola (min. 6 caractere)</label><input type="password" id="pw1" minlength="6" required autocomplete="new-password"></div>
         <div><label class="field">Repetă parola</label><input type="password" id="pw2" minlength="6" required autocomplete="new-password"></div>
       </div>

@@ -37,7 +37,7 @@ export function renderOwnerPage(env, url) {
   .plan { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .72rem; font-weight: 600; }
   .plan.demo { background: #fff3d6; color: #8a5a00; }
   .plan.paid { background: #dff3ea; color: #0a4a3b; }
-  input[type=text], input[type=password] { font-family: inherit; font-size: .9rem; padding: 8px 10px; border: 1px solid var(--linie); border-radius: 8px; }
+  input[type=text], input[type=email], input[type=password] { font-family: inherit; font-size: .9rem; padding: 8px 10px; border: 1px solid var(--linie); border-radius: 8px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .msg { font-size: .85rem; color: var(--verde-inchis); }
   .msg.err { color: #a33; }

@@ -46,7 +46,7 @@ const SHELL_CSS = `
   .msg { margin: 10px 0; color: var(--verde-inchis); font-size: .9rem; }
   .msg.err { color: #a33; }
   label.field { display: block; font-size: .85rem; color: #555; margin: 10px 0 4px; }
-  input[type=text], input[type=password], input[type=url], textarea, select { width: 100%; font-family: inherit; font-size: .95rem; padding: 9px 12px; border: 1px solid var(--linie); border-radius: 8px; background: #fff; }
+  input[type=text], input[type=email], input[type=password], input[type=url], textarea, select { width: 100%; font-family: inherit; font-size: .95rem; padding: 9px 12px; border: 1px solid var(--linie); border-radius: 8px; background: #fff; }
   textarea { min-height: 70px; resize: vertical; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
