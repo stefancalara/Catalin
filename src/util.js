@@ -32,6 +32,24 @@ export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// Adresa canonică a platformei (fără / la final): PLATFORM_URL dacă e setat, altfel hostul curent
+export function siteUrl(env, url) {
+  return (env.PLATFORM_URL || url.origin).replace(/\/+$/, '');
+}
+
+/* Butonul „← Înapoi” din capul paginilor (stilul .back-btn îl definește fiecare pagină).
+   Dacă vizitatorul a venit de pe altă pagină a site-ului, revine la ea prin istoric (cu tot cu
+   starea ei); altfel merge la pagina-părinte `href`. Fără `href`, butonul apare doar când există
+   o pagină anterioară în site — ex. pe pagina invitaților, deschisă de obicei direct din codul QR.
+   /login și /creeaza nu sunt ținte bune pentru „înapoi” (redirecționează / creează din nou). */
+const BACK_JS = `function pqCanBack(){try{var r=new URL(document.referrer);return window.top===window&&history.length>1&&r.origin===location.origin&&r.pathname!==location.pathname&&!/^\\/(login|creeaza)$/.test(r.pathname)}catch(e){return false}}
+function pqBack(){if(!pqCanBack())return true;history.back();return false}
+document.querySelectorAll('.back-btn[hidden]').forEach(function(b){if(pqCanBack())b.hidden=false})`;
+
+export function backButton(href = '') {
+  return `<a class="back-btn" href="${escapeHtml(href || '#')}"${href ? '' : ' hidden'} onclick="return pqBack()"><span aria-hidden="true">←</span> <span class="back-label">Înapoi</span></a><script>${BACK_JS}</script>`;
+}
+
 // Pentru text inserat în interiorul unui <script> ca literal JSON
 export function jsonForScript(obj) {
   return JSON.stringify(obj).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');

@@ -2,11 +2,12 @@
  * Pagina de creare a unui eveniment nou (/creeaza).
  */
 
-import { escapeHtml, jsonForScript, approxPhotos } from '../util.js';
+import { escapeHtml, jsonForScript, approxPhotos, siteUrl, backButton } from '../util.js';
 import { TEMPLATES, EVENT_TYPES, DEFAULT_TEMPLATE } from '../templates.js';
 
 export function renderCreatePage(env, url) {
   const brand = env.BRAND_NAME || 'PozeQR';
+  const site = siteUrl(env, url);
   const templates = {};
   for (const [id, t] of Object.entries(TEMPLATES)) templates[id] = { name: t.name, desc: t.desc, presets: t.presets };
   const cfg = { templates, eventTypes: EVENT_TYPES, defaultTemplate: DEFAULT_TEMPLATE, origin: url.origin, demoMb: Math.round(Number(env.DEMO_MAX_BYTES || 314572800) / 1048576), demoPhotos: approxPhotos(Number(env.DEMO_MAX_BYTES || 314572800)) };
@@ -16,8 +17,22 @@ export function renderCreatePage(env, url) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Creează evenimentul tău — ${escapeHtml(brand)}</title>
-<meta name="description" content="Creează în 2 minute pagina cu cod QR prin care invitații îți trimit pozele și clipurile de la nuntă, botez sau orice eveniment.">
+<title>Creează gratuit pagina cu cod QR pentru poze de la nuntă | ${escapeHtml(brand)}</title>
+<meta name="description" content="Creează în 2 minute pagina cu cod QR prin care invitații îți trimit pozele și clipurile de la nuntă, botez sau orice eveniment. Alegi template-ul și culorile, testezi gratuit.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="${escapeHtml(site)}/creeaza">
+<meta name="theme-color" content="#faf8f3">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="${escapeHtml(brand)}">
+<meta property="og:locale" content="ro_RO">
+<meta property="og:url" content="${escapeHtml(site)}/creeaza">
+<meta property="og:title" content="Creează gratuit pagina ta cu cod QR pentru poze — ${escapeHtml(brand)}">
+<meta property="og:description" content="Gata în 2 minute: alegi template-ul și culorile, primești linkul și codul QR, iar invitații îți trimit pozele și clipurile din telefon.">
+<meta property="og:image" content="${escapeHtml(site)}/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -26,7 +41,10 @@ export function renderCreatePage(env, url) {
   body { font-family: 'Montserrat', system-ui, sans-serif; background: var(--crem); color: #333b37; }
   header { padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
   header a.logo { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; color: var(--verde-inchis); text-decoration: none; font-weight: 600; }
-  header a.back { color: var(--verde); font-size: .9rem; text-decoration: none; }
+  .brandbar { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 7px 14px; border: 1px solid var(--linie); border-radius: 999px; background: #fff; color: var(--verde-inchis); text-decoration: none; font-size: .85rem; font-weight: 500; line-height: 1.2; }
+  .back-btn:hover { border-color: var(--verde); }
+  .back-btn[hidden] { display: none; }
   .wrap { max-width: 760px; margin: 0 auto; padding: 10px 20px 60px; }
   h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; color: var(--verde-inchis); font-size: 2.2rem; margin-bottom: 6px; }
   .lead { color: #6b716c; margin-bottom: 24px; font-size: .95rem; }
@@ -71,7 +89,7 @@ export function renderCreatePage(env, url) {
 </style>
 </head>
 <body>
-<header><a class="logo" href="/">${escapeHtml(brand)}</a><a class="back" href="/">← înapoi</a></header>
+<header><div class="brandbar">${backButton('/')}<a class="logo" href="/">${escapeHtml(brand)}</a></div></header>
 <div class="wrap">
   <h1>Creează evenimentul tău</h1>
   <p class="lead">Durează 2 minute. Primești imediat pagina, codul QR și panoul de administrare. Începi cu ${cfg.demoMb} MB gratuit pentru testare (aprox. ${cfg.demoPhotos} de poze).</p>

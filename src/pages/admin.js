@@ -2,7 +2,7 @@
  * Panoul de administrare al unui eveniment (+ pagina de login).
  */
 
-import { escapeHtml, jsonForScript } from '../util.js';
+import { escapeHtml, jsonForScript, backButton } from '../util.js';
 import { TEMPLATES, EVENT_TYPES } from '../templates.js';
 import { publicEvent } from '../store.js';
 
@@ -14,6 +14,10 @@ const SHELL_CSS = `
   header h1 { font-family: Georgia, serif; font-weight: normal; font-size: 1.25rem; }
   header nav a, header nav button { color: #fff; opacity: .9; text-decoration: none; margin-left: 14px; font-size: .9rem; background: none; border: none; cursor: pointer; font-family: inherit; }
   header nav a:hover { opacity: 1; text-decoration: underline; }
+  .hleft { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 6px 13px; border: 1px solid var(--linie); border-radius: 999px; background: #fff; color: var(--verde-inchis); text-decoration: none; font-size: .85rem; line-height: 1.2; }
+  header .back-btn { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.45); color: #fff; }
+  header .back-btn:hover { background: rgba(255,255,255,.2); }
   .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
   .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--linie); }
   .tabs button { background: none; border: none; border-bottom: 3px solid transparent; padding: 10px 14px; font-family: inherit; font-size: .95rem; color: #555; cursor: pointer; }
@@ -99,13 +103,14 @@ export function renderLoginPage(ev, base) {
 <title>Admin — ${escapeHtml(title)}</title>
 <meta name="robots" content="noindex">
 <style>${SHELL_CSS}
-  .login { max-width: 380px; margin: 60px auto; }
+  .login { max-width: 380px; margin: 40px auto; }
   .login h1 { font-family: Georgia, serif; font-weight: normal; color: var(--verde-inchis); text-align: center; margin-bottom: 6px; }
   .login p { text-align: center; color: #777; font-size: .9rem; margin-bottom: 18px; }
 </style>
 </head>
 <body>
 <div class="container">
+  ${backButton(base || '/')}
   <div class="login box">
     <h1>${escapeHtml(title)}</h1>
     <p>Panoul de administrare al evenimentului</p>
@@ -158,10 +163,10 @@ export function renderAdminPage(ev, env, opts) {
 </head>
 <body>
 <header>
-  <h1>${escapeHtml(title)} <span class="plan ${escapeHtml(ev.plan || 'demo')}" id="planBadge"></span></h1>
+  <div class="hleft">${backButton('/')}<h1>${escapeHtml(title)} <span class="plan ${escapeHtml(ev.plan || 'demo')}" id="planBadge"></span></h1></div>
   <nav>
-    <a href="${escapeHtml(publicUrl)}" target="_blank">Pagina invitaților ↗</a>
-    <a href="${escapeHtml(base + '/print')}" target="_blank">Cartonașe QR ↗</a>
+    <a href="${escapeHtml(publicUrl)}">Pagina invitaților</a>
+    <a href="${escapeHtml(base + '/print')}">Cartonașe QR</a>
     <button id="logout">Ieșire</button>
   </nav>
 </header>
@@ -273,7 +278,7 @@ export function renderAdminPage(ev, env, opts) {
         <div>
           <p class="help">Codul QR duce la pagina de mai sus. Pune-l pe mese, în invitații sau pe un afiș.</p>
           <div class="row">
-            <a class="btn" href="${escapeHtml(base + '/print')}" target="_blank">🖨 Planșe A4 de printat</a>
+            <a class="btn" href="${escapeHtml(base + '/print')}">🖨 Planșe A4 de printat</a>
             <button class="btn secondary" id="qrPng">⬇ QR ca PNG</button>
             <button class="btn secondary" id="qrSvgDl">⬇ QR ca SVG</button>
           </div>
@@ -283,7 +288,7 @@ export function renderAdminPage(ev, env, opts) {
     <div class="box">
       <h2>Slideshow live pentru proiector / TV</h2>
       <p class="help">Deschide linkul pe laptopul conectat la proiector sau pe un TV cu browser. Pozele noi apar automat, fără să apeși nimic. Linkul e secret — nu-l pune pe cartonașe.</p>
-      <div class="link-box"><code id="slideshowLink"></code><button class="btn secondary small" data-copy="slideshowLink">Copiază</button><a class="btn small" id="slideshowOpen" target="_blank">Deschide ↗</a></div>
+      <div class="link-box"><code id="slideshowLink"></code><button class="btn secondary small" data-copy="slideshowLink">Copiază</button><a class="btn small" id="slideshowOpen">Deschide</a></div>
     </div>
     <div class="box">
       <h2>Galeria publică</h2>

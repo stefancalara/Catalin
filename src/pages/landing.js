@@ -2,8 +2,18 @@
  * Pagina de prezentare a platformei (/).
  */
 
-import { escapeHtml, approxPhotos } from '../util.js';
+import { escapeHtml, jsonForScript, approxPhotos, siteUrl, backButton } from '../util.js';
 import { TEMPLATES } from '../templates.js';
+
+// Întrebările frecvente: afișate pe pagină și trimise motoarelor de căutare ca FAQPage
+const FAQ = [
+  ['Invitații trebuie să instaleze ceva?', 'Nu. Scanează codul QR cu camera telefonului, se deschide pagina în browser și aleg pozele din galerie. Merge pe iPhone și Android.'],
+  ['Pozele se comprimă?', 'Nu. Fișierele se păstrează exact cum au fost încărcate, inclusiv clipurile video, până la 100 MB per fișier.'],
+  ['Cât timp rămân pozele?', '12 luni de la eveniment. Le poți descărca oricând pe toate într-un singur ZIP, iar la final poți șterge evenimentul.'],
+  ['Pot folosi pentru botez, majorat sau un eveniment de firmă?', 'Da. Alegi tipul evenimentului la creare și primești texte și template-uri potrivite. Poți schimba totul oricând.'],
+  ['Cum pun codul QR pe mese?', 'Din panoul de administrare descarci planșe A4 în stilul paginii, gata de printat pe hârtie cartonată: cartonașe pliate, un afiș mare sau 6 cartonașe mici. Primești și codul QR ca imagine pentru invitații.'],
+  ['Cum văd pozele în timp real la petrecere?', 'Ai un link secret de slideshow pe care îl deschizi pe laptopul de la proiector sau pe TV. Pozele noi apar singure, iar în colț e codul QR.'],
+];
 
 export function renderLandingPage(env, url, me = null) {
   const brand = env.BRAND_NAME || 'PozeQR';
@@ -22,16 +32,85 @@ export function renderLandingPage(env, url, me = null) {
     return `<div class="tpl"><div class="sw" style="background:${p.bg}"><i style="background:${p.primary}"></i><i style="background:${p.accent}"></i></div><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.desc)}</small></div>`;
   }).join('');
 
+  const site = siteUrl(env, url);
+  const title = `Cod QR pentru poze la nuntă, botez și evenimente | ${brand}`;
+  const description = 'Invitații scanează codul QR și îți trimit pozele și clipurile de la nuntă sau botez, la calitate originală. Fără aplicație, fără cont. Încearcă gratuit!';
+  const ogTitle = `${brand} — Toate pozele invitaților de la nuntă, într-un singur album`;
+  const ogDescription = `Pui cartonașul cu cod QR pe mese, invitații scanează și încarcă pozele și clipurile din telefon. Fără aplicație, fără cont. Demo gratuit, apoi ${price} per eveniment.`;
+  const ogImage = `${site}/og-image.jpg`;
+  const email = (contact.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/) || [])[0];
+
+  // Prețul ca număr, pentru ofertele din datele structurate (ex. „249 lei” -> 249 RON)
+  const priceNum = ((price.match(/\d+(?:[.,]\d+)?/) || [])[0] || '').replace(',', '.');
+  const currency = /€|eur/i.test(price) ? 'EUR' : /\$|usd/i.test(price) ? 'USD' : 'RON';
+  const offers = [{ '@type': 'Offer', name: 'Demo', price: '0', priceCurrency: currency, description: `${demoMb} MB spațiu pentru testare, toate funcțiile`, url: `${site}/creeaza` }];
+  if (priceNum) offers.push({ '@type': 'Offer', name: 'Eveniment', price: priceNum, priceCurrency: currency, description: `${paidGb} GB spațiu, invitați nelimitați, plată unică per eveniment`, url: `${site}/creeaza`, availability: 'https://schema.org/InStock' });
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization', '@id': `${site}/#org`, name: brand, url: `${site}/`,
+        logo: { '@type': 'ImageObject', url: `${site}/icon-512.png`, width: 512, height: 512 },
+        ...(email ? { email, contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email, availableLanguage: ['ro'] } } : {}),
+      },
+      { '@type': 'WebSite', '@id': `${site}/#website`, url: `${site}/`, name: brand, inLanguage: 'ro-RO', publisher: { '@id': `${site}/#org` } },
+      {
+        '@type': 'WebPage', '@id': `${site}/#webpage`, url: `${site}/`, name: title, description, inLanguage: 'ro-RO',
+        isPartOf: { '@id': `${site}/#website` }, about: { '@id': `${site}/#app` },
+        primaryImageOfPage: { '@type': 'ImageObject', url: ogImage, width: 1200, height: 630 },
+      },
+      {
+        '@type': 'WebApplication', '@id': `${site}/#app`, name: brand, url: `${site}/`, image: ogImage,
+        description: 'Pagină cu cod QR prin care invitații trimit pozele și clipurile de la nuntă, botez, majorat sau eveniment de firmă, direct din browserul telefonului.',
+        applicationCategory: 'MultimediaApplication', operatingSystem: 'iOS, Android, Web', browserRequirements: 'Orice browser modern',
+        inLanguage: 'ro-RO', areaServed: 'RO', publisher: { '@id': `${site}/#org` }, offers,
+        featureList: [
+          'Încărcare poze și clipuri prin cod QR, fără aplicație și fără cont',
+          'Calitate originală, până la 100 MB per fișier',
+          '6 template-uri cu culori personalizabile',
+          'Cartonașe QR de printat pe A4',
+          'Slideshow live pe proiector sau TV',
+          'Carte de oaspeți',
+          'Descărcare totală în ZIP',
+        ],
+      },
+      {
+        '@type': 'FAQPage', '@id': `${site}/#faq`, inLanguage: 'ro-RO',
+        mainEntity: FAQ.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+      },
+    ],
+  };
+
   return `<!doctype html>
 <html lang="ro">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>${escapeHtml(brand)} — Cod QR pentru poze de la nuntă, botez sau eveniment</title>
-<meta name="description" content="Colectează pozele și clipurile invitaților cu un simplu cod QR: fără aplicație, fără cont. Pagină personalizată cu template-uri și culori, cartonașe QR de printat, slideshow live, descărcare totală ZIP. ${escapeHtml(price)} per eveniment.">
-<link rel="canonical" href="${escapeHtml(url.origin)}/">
-<meta property="og:title" content="${escapeHtml(brand)} — Cod QR pentru poze de la nuntă">
-<meta property="og:description" content="Invitații scanează codul QR și îți trimit pozele și clipurile direct de pe telefon. Fără aplicație, fără cont.">
+<title>${escapeHtml(title)}</title>
+<meta name="description" content="${escapeHtml(description)}">
+<meta name="keywords" content="cod QR poze nuntă, album foto nuntă invitați, aplicație poze nuntă, poze de la invitați, QR poze botez, album online eveniment, slideshow nuntă, colectare poze eveniment">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<link rel="canonical" href="${escapeHtml(site)}/">
+<meta name="theme-color" content="#faf8f3">
+<meta name="application-name" content="${escapeHtml(brand)}">
+<meta name="apple-mobile-web-app-title" content="${escapeHtml(brand)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="${escapeHtml(brand)}">
+<meta property="og:locale" content="ro_RO">
+<meta property="og:url" content="${escapeHtml(site)}/">
+<meta property="og:title" content="${escapeHtml(ogTitle)}">
+<meta property="og:description" content="${escapeHtml(ogDescription)}">
+<meta property="og:image" content="${escapeHtml(ogImage)}">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${escapeHtml(brand)}: cartonaș cu cod QR prin care invitații încarcă pozele de la eveniment">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(ogTitle)}">
+<meta name="twitter:description" content="${escapeHtml(ogDescription)}">
+<meta name="twitter:image" content="${escapeHtml(ogImage)}">
+<script type="application/ld+json">${jsonForScript(jsonLd)}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -44,6 +123,10 @@ export function renderLandingPage(env, url, me = null) {
   header nav a { margin-left: 18px; text-decoration: none; color: #555; font-size: .9rem; }
   header nav a.cta { background: var(--verde); color: #fff; padding: 9px 16px; border-radius: 999px; }
   header nav a.login { color: var(--verde); font-weight: 500; }
+  .brandbar { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 7px 14px; border: 1px solid var(--linie); border-radius: 999px; background: #fff; color: var(--verde-inchis); text-decoration: none; font-size: .85rem; font-weight: 500; line-height: 1.2; }
+  .back-btn:hover { border-color: var(--verde); }
+  .back-btn[hidden] { display: none; }
   .hero { max-width: 1100px; margin: 0 auto; padding: 40px 24px 30px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
   @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
   @media (max-width: 640px) {
@@ -53,6 +136,11 @@ export function renderLandingPage(env, url, me = null) {
     header nav a:not(.cta):not(.login) { display: none; }
     header nav a.login { margin: 0 12px 0 0; font-size: .85rem; white-space: nowrap; }
     header nav a.cta { margin-left: 0; padding: 8px 14px; font-size: .85rem; white-space: nowrap; }
+    header { flex-wrap: wrap; row-gap: 10px; }
+    header nav { margin-left: auto; }
+    .brandbar { gap: 8px; }
+    .back-btn { padding: 6px 10px; }
+    .back-btn .back-label { display: none; }
   }
   .hero h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.1; color: var(--verde-inchis); }
   .hero h1 em { font-style: italic; color: var(--verde); }
@@ -107,7 +195,7 @@ export function renderLandingPage(env, url, me = null) {
 </head>
 <body>
 <header>
-  <a class="logo" href="/">${escapeHtml(brand)}</a>
+  <div class="brandbar">${backButton()}<a class="logo" href="/">${escapeHtml(brand)}</a></div>
   <nav><a href="#cum">Cum funcționează</a><a href="#template">Template-uri</a><a href="#pret">Preț</a>${me ? `<a class="login" href="/e/${escapeHtml(me.slug)}/admin" title="${escapeHtml(me.name)}">Panoul meu</a>` : `<a class="login" href="/login">Intră în panou</a>`}<a class="cta" href="/creeaza">Creează gratuit</a></nav>
 </header>
 
@@ -116,7 +204,7 @@ export function renderLandingPage(env, url, me = null) {
     <h1>Toate pozele de la <em>evenimentul tău</em>, trimise de invitați printr-un cod QR</h1>
     <p>Pui cartonașul cu cod QR pe mese. Invitații scanează, aleg pozele și clipurile din telefon și gata — apar în albumul vostru. Fără aplicație, fără cont, fără limite de invitați.</p>
     <a class="btn" href="/creeaza">Creează pagina ta →</a>
-    ${demoEvent ? `<a class="btn ghost" href="${escapeHtml(demoEvent)}" target="_blank">Vezi un exemplu</a>` : ''}
+    ${demoEvent ? `<a class="btn ghost" href="${escapeHtml(demoEvent)}">Vezi un exemplu</a>` : ''}
     <div class="fine">Gata în 2 minute · ${demoMb} MB gratuit pentru testare (aprox. ${demoPhotos} de poze) · nunți, botezuri, majorate, evenimente de firmă</div>
   </div>
   <div class="mock">
@@ -185,12 +273,7 @@ export function renderLandingPage(env, url, me = null) {
 <section>
   <h2>Întrebări frecvente</h2>
   <div class="faq">
-    <details><summary>Invitații trebuie să instaleze ceva?</summary><p>Nu. Scanează codul QR cu camera telefonului, se deschide pagina în browser și aleg pozele din galerie. Merge pe iPhone și Android.</p></details>
-    <details><summary>Pozele se comprimă?</summary><p>Nu. Fișierele se păstrează exact cum au fost încărcate, inclusiv clipurile video, până la 100 MB per fișier.</p></details>
-    <details><summary>Cât timp rămân pozele?</summary><p>12 luni de la eveniment. Le poți descărca oricând pe toate într-un singur ZIP, iar la final poți șterge evenimentul.</p></details>
-    <details><summary>Pot folosi pentru botez, majorat sau un eveniment de firmă?</summary><p>Da. Alegi tipul evenimentului la creare și primești texte și template-uri potrivite. Poți schimba totul oricând.</p></details>
-    <details><summary>Cum pun codul QR pe mese?</summary><p>Din panoul de administrare descarci planșe A4 în stilul paginii, gata de printat pe hârtie cartonată: cartonașe pliate, un afiș mare sau 6 cartonașe mici. Primești și codul QR ca imagine pentru invitații.</p></details>
-    <details><summary>Cum văd pozele în timp real la petrecere?</summary><p>Ai un link secret de slideshow pe care îl deschizi pe laptopul de la proiector sau pe TV. Pozele noi apar singure, iar în colț e codul QR.</p></details>
+    ${FAQ.map(([q, a]) => `<details><summary>${escapeHtml(q)}</summary><p>${escapeHtml(a)}</p></details>`).join('\n    ')}
   </div>
 </section>
 

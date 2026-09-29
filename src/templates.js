@@ -4,7 +4,7 @@
  * (principală, accent, fundal), așa că orice template merge cu orice paletă.
  */
 
-import { escapeHtml, jsonForScript, shade, isDark, rgbaFromHex, isHex } from './util.js';
+import { escapeHtml, jsonForScript, shade, isDark, rgbaFromHex, isHex, backButton } from './util.js';
 
 /* ---------- Tipuri de eveniment ---------- */
 
@@ -268,6 +268,8 @@ const BASE_CSS = `
     align-items: center;
   }
   main { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .back-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin: 12px 0 0 12px; padding: 7px 14px; border: 1px solid var(--cardBorder); border-radius: 999px; background: var(--card); color: var(--c1d); font-family: var(--font-body); font-size: .85rem; text-decoration: none; line-height: 1.2; }
+  .back-btn[hidden] { display: none; }
   .ornament { color: var(--acc); letter-spacing: .5em; font-size: .9rem; margin: 26px 0 4px; }
   .photo-frame {
     width: min(72vw, 320px, 34vh);
@@ -508,6 +510,12 @@ export function renderGuestPage(ev, opts) {
 <meta name="description" content="Încarcă pozele și clipurile tale de la ${escapeHtml(typeInfo.word)} — ${escapeHtml(plainTitle)}.">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="${pal.bg}">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ro_RO">
+<meta property="og:title" content="${escapeHtml(plainTitle)} — ${escapeHtml(typeInfo.label)}">
+<meta property="og:description" content="${escapeHtml(t.subtitle || 'Încarcă aici pozele și clipurile tale de la ' + typeInfo.word + '. Fără aplicație, fără cont.')}">
+${opts.origin ? `<meta property="og:image" content="${escapeHtml(opts.origin + (opts.coverUrl || base + '/cover'))}">
+<meta property="og:image:alt" content="${escapeHtml(plainTitle)}">` : ''}
 ${fontLink(tpl)}
 <style>
 ${cssVars(tpl, pal)}
@@ -518,6 +526,7 @@ ${introCss}
 </head>
 <body class="tpl-${escapeHtml(ev.template || DEFAULT_TEMPLATE)} intro-${intro}">
 ${introHtml}
+${backButton()}
 <main>
   ${tpl.ornament ? `<div class="ornament">${escapeHtml(tpl.ornament)}</div>` : ''}
   <div class="photo-frame loading" id="photoFrame">
@@ -548,7 +557,7 @@ ${introHtml}
 </main>
 <footer>
   ${escapeHtml(t.footer || '')}
-  ${opts.brand && opts.brand.name ? `<div class="powered">realizat cu <a href="${escapeHtml(opts.brand.url || '/')}" target="_blank" rel="noopener">${escapeHtml(opts.brand.name)}</a></div>` : ''}
+  ${opts.brand && opts.brand.name ? `<div class="powered">realizat cu <a href="${escapeHtml(opts.brand.url || '/')}">${escapeHtml(opts.brand.name)}</a></div>` : ''}
 </footer>
 <script>
 const CFG = ${jsonForScript(config)};
@@ -720,6 +729,8 @@ ${cssVars(tpl, pal)}
   body { background: #e8e6e0; font-family: var(--font-body); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .toolbar { background: var(--c1d); color: #fff; padding: 16px 20px; text-align: center; font-size: .9rem; line-height: 1.6; }
   .toolbar a { color: #fff; }
+  .toolbar .back-row { text-align: left; margin-bottom: 8px; }
+  .toolbar .back-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; background: rgba(255,255,255,.1); text-decoration: none; font-size: .85rem; line-height: 1.2; }
   .toolbar button { display: inline-block; margin: 10px 6px 0; background: var(--acc); color: ${isDark(pal.acc) ? '#fff' : '#222'}; border: none; border-radius: 999px; padding: 12px 34px; font-family: inherit; font-size: 1rem; cursor: pointer; }
   .sheet { width: 210mm; height: 297mm; page: portrait; background: var(--hartie); position: relative; margin: 24px auto; box-shadow: 0 4px 24px rgba(0,0,0,.2); overflow: hidden; }
   .sheet.landscape { width: 297mm; height: 210mm; page: landscape; }
@@ -772,6 +783,7 @@ ${cssVars(tpl, pal)}
 </head>
 <body>
 <div class="toolbar">
+  <div class="back-row">${backButton((opts.base || '') + '/admin')}</div>
   <strong>Cartonașe cu cod QR pentru mese — ${escapeHtml(plainTitle)}</strong><br>
   Planșa 1: taie pe linia verticală din mijloc, apoi îndoaie fiecare parte pe linia punctată — obții 2 cartonașe cu QR pe ambele fețe.<br>
   Planșa 2: doar îndoaie pe linia punctată — un cartonaș mare cu QR pe ambele fețe. Jumătățile de sus sunt rotite intenționat, ca la îndoit totul să stea drept.<br>
@@ -858,6 +870,9 @@ ${cssVars(tpl, pal)}
   .empty h1 { font-family: var(--font-heading); font-weight: 500; font-size: 3rem; }
   .empty p { font-size: 1.2rem; opacity: .8; }
   .counter { position: absolute; top: 20px; right: 28px; font-size: .9rem; opacity: .6; z-index: 5; }
+  .back-btn { position: absolute; top: 18px; left: 22px; z-index: 6; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 999px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.35); color: #fff; text-decoration: none; font-size: .95rem; opacity: 0; pointer-events: none; transition: opacity .3s; }
+  body.ui { cursor: default; }
+  body.ui .back-btn { opacity: 1; pointer-events: auto; }
 </style>
 </head>
 <body>
@@ -866,12 +881,16 @@ ${cssVars(tpl, pal)}
 <div class="slide" id="s1"><div class="bg"></div></div>
 <div class="title">${escapeHtml(plainTitle)}</div>
 <div class="counter" id="counter"></div>
+${backButton(base + '/admin')}
 <div class="corner"><div id="qr"></div><div><b>Scanează</b><small>și încarcă pozele tale de la eveniment</small></div></div>
 <script>
 const BASE = ${jsonForScript(base)};
 const KEY = ${jsonForScript(opts.key || '')};
 const VID = /\\.(mp4|m4v|mov|webm|mkv|avi|3gp|ts|mts|m2ts|mpg|mpeg|wmv)$/i;
 const INTERVAL = 7000;
+let uiTimer;
+function showUi() { document.body.classList.add('ui'); clearTimeout(uiTimer); uiTimer = setTimeout(() => document.body.classList.remove('ui'), 3000); }
+['mousemove', 'touchstart', 'keydown'].forEach(t => addEventListener(t, showUi, { passive: true }));
 const qr = qrcode(0, 'M'); qr.addData(${jsonForScript(opts.qrUrl)}); qr.make();
 document.getElementById('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 1, scalable: true });
 
@@ -942,10 +961,11 @@ ${fontLink(tpl)}
 ${cssVars(tpl, pal)}
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: var(--font-body); background: var(--bg); color: var(--text); }
-  header { text-align: center; padding: 26px 16px 10px; }
+  header { text-align: center; padding: 10px 16px 10px; }
+  .topbar { padding: 12px 12px 0; }
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--cardBorder); border-radius: 999px; background: var(--card); color: var(--c1d); font-size: .85rem; text-decoration: none; line-height: 1.2; }
   header h1 { font-family: var(--font-heading); font-weight: 500; color: var(--c1d); font-size: clamp(1.8rem, 7vw, 2.6rem); }
   header h1 .amp { font-style: italic; color: var(--c1); }
-  header a { color: var(--c1); font-size: .9rem; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; padding: 12px; max-width: 1100px; margin: 0 auto; }
   .grid img, .grid video { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; border-radius: 8px; background: var(--c1l); }
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
@@ -956,9 +976,9 @@ ${cssVars(tpl, pal)}
 </style>
 </head>
 <body>
+<div class="topbar">${backButton(base || '/')}</div>
 <header>
   <h1>${ev.name2 ? `${escapeHtml(ev.name1)} <span class="amp">&amp;</span> ${escapeHtml(ev.name2)}` : escapeHtml(ev.name1)}</h1>
-  <a href="${escapeHtml(base || '/')}">← Înapoi la încărcare</a>
 </header>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" hidden>Încă nu s-a încărcat nimic. Fii primul!</div>

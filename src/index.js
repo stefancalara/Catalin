@@ -6,6 +6,7 @@
  *   GET  /                          — pagina de prezentare (sau evenimentul ROOT_EVENT, vezi wrangler.toml)
  *   GET  /creeaza                   — creează un eveniment nou
  *   GET  /login                     — intră în panoul unui eveniment (adresă + parolă)
+ *   GET  /robots.txt, /sitemap.xml  — pentru motoarele de căutare
  *   POST /api/events                — API creare eveniment
  *   POST /api/login                 — autentificare cu e-mail + parolă (cookie pentru panoul evenimentului)
  *   GET  /api/slug-check?slug=      — verifică dacă adresa e liberă
@@ -30,7 +31,7 @@
 
 import {
   json, html, redirect, escapeHtml, guessType, sanitizeName, timingSafeEqual,
-  hmacHex, verifyPassword, hashPassword, serverSecret, isValidSlug, parseCookies, cookieHeader, isSecure,
+  hmacHex, verifyPassword, hashPassword, serverSecret, isValidSlug, parseCookies, cookieHeader, isSecure, siteUrl, backButton,
 } from './util.js';
 import * as store from './store.js';
 import { renderGuestPage, renderPrintPage, renderGalleryPage, renderSlideshowPage, normalizeColors, palette } from './templates.js';
@@ -58,6 +59,12 @@ export default {
       if (env.PLATFORM_HOST && url.hostname === 'www.' + env.PLATFORM_HOST) {
         url.hostname = env.PLATFORM_HOST;
         return Response.redirect(url.toString(), 301);
+      }
+      if (path === '/robots.txt') {
+        return new Response(robotsTxt(env, url), { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
+      }
+      if (path === '/sitemap.xml') {
+        return new Response(sitemapXml(env, url), { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
       }
       if (path === '/owner' || path.startsWith('/owner/')) {
         return await handleOwner(request, env, url);
@@ -107,6 +114,30 @@ export default {
   },
 };
 
+/* ---------- Motoare de căutare ---------- */
+
+// Paginile evenimentelor și panourile au <meta name="robots" content="noindex">; nu le blocăm aici,
+// ca Google să vadă acel noindex și ca WhatsApp/Facebook să poată genera preview-ul linkului.
+function robotsTxt(env, url) {
+  return `User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /owner
+
+Sitemap: ${siteUrl(env, url)}/sitemap.xml
+`;
+}
+
+function sitemapXml(env, url) {
+  const site = siteUrl(env, url);
+  const pages = ['/', '/creeaza'];
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${pages.map(p => `  <url><loc>${escapeHtml(site + p)}</loc></url>`).join('\n')}
+</urlset>
+`;
+}
+
 /* ---------- Creare eveniment ---------- */
 
 async function createEvent(request, env, url) {
@@ -147,7 +178,7 @@ async function handleEvent(request, env, url, slug, rest, base) {
       if (!(await validSession(request, secret, ev))) return html(renderLoginPage(ev, publicBase), 401);
       view = previewOverrides(ev, url.searchParams);
     }
-    return html(renderGuestPage(view, { base, preview: view !== ev, brand, coverUrl: base + '/cover?v=' + encodeURIComponent(ev.updatedAt || '') }), 200, {
+    return html(renderGuestPage(view, { base, preview: view !== ev, brand, origin: url.origin, coverUrl: base + '/cover?v=' + encodeURIComponent(ev.updatedAt || '') }), 200, {
       'cache-control': 'no-store',
     });
   }
@@ -168,7 +199,7 @@ async function handleEvent(request, env, url, slug, rest, base) {
       ? url.origin + '/'
       : url.origin + publicBase;
     const brandHost = (env.PLATFORM_URL || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-    return html(renderPrintPage(ev, { qrUrl, brand: { name: env.BRAND_NAME || '', host: brandHost } }));
+    return html(renderPrintPage(ev, { base: publicBase, qrUrl, brand: { name: env.BRAND_NAME || '', host: brandHost } }));
   }
 
   // Galerie / slideshow: publice dacă evenimentul permite, altfel doar cu cheia din admin
@@ -617,6 +648,6 @@ async function serveObject(env, key, forceDownload, request, downloadName) {
 function notFoundPage(env, msg) {
   const brand = env.BRAND_NAME || 'Platforma';
   return `<!doctype html><html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><title>Nu am găsit pagina</title>
-<style>body{font-family:Georgia,serif;background:#faf8f3;color:#333;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px}h1{font-weight:normal;color:#0a4a3b}a{color:#0f6e57}</style></head>
-<body><div><h1>${escapeHtml(msg || 'Evenimentul nu există (sau a fost șters).')}</h1><p><a href="/">${escapeHtml(brand)} — pagina principală</a></p></div></body></html>`;
+<style>body{font-family:Georgia,serif;background:#faf8f3;color:#333;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px}h1{font-weight:normal;color:#0a4a3b}a{color:#0f6e57}.back-btn{position:fixed;top:16px;left:16px;display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid #e2ddd2;border-radius:999px;background:#fff;color:#0a4a3b;text-decoration:none;font-family:system-ui,sans-serif;font-size:.85rem}</style></head>
+<body>${backButton('/')}<div><h1>${escapeHtml(msg || 'Evenimentul nu există (sau a fost șters).')}</h1><p><a href="/">${escapeHtml(brand)} — pagina principală</a></p></div></body></html>`;
 }

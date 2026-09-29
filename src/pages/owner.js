@@ -2,7 +2,7 @@
  * Panoul proprietarului platformei (/owner): toate evenimentele, planuri, migrare.
  */
 
-import { escapeHtml, jsonForScript } from '../util.js';
+import { escapeHtml, jsonForScript, backButton } from '../util.js';
 import { EVENT_TYPES } from '../templates.js';
 
 export function renderOwnerPage(env, url) {
@@ -22,6 +22,9 @@ export function renderOwnerPage(env, url) {
   header { background: var(--verde-inchis); color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
   header h1 { font-family: Georgia, serif; font-weight: normal; font-size: 1.25rem; }
   header a { color: #fff; font-size: .9rem; }
+  .hleft { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 6px 13px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; background: rgba(255,255,255,.1); color: #fff; text-decoration: none; font-size: .85rem; line-height: 1.2; }
+  .back-btn:hover { background: rgba(255,255,255,.2); }
   .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
   .box { background: #fff; border: 1px solid var(--linie); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
   .box h2 { font-size: 1.05rem; color: var(--verde-inchis); margin-bottom: 10px; }
@@ -46,7 +49,7 @@ export function renderOwnerPage(env, url) {
 </style>
 </head>
 <body>
-<header><h1>${escapeHtml(brand)} — panou proprietar</h1><a href="/">pagina publică ↗</a></header>
+<header><div class="hleft">${backButton('/')}<h1>${escapeHtml(brand)} — panou proprietar</h1></div><a href="/">pagina publică</a></header>
 <div class="container">
   <div class="box totals" id="totals"></div>
 
@@ -94,7 +97,7 @@ async function load() {
     const title = e.name2 ? e.name1 + ' & ' + e.name2 : e.name1;
     const isRoot = e.slug === CFG.rootEvent;
     tr.innerHTML =
-      '<td><b></b><br><a href="/e/' + e.slug + '" target="_blank">/e/' + e.slug + '</a>' + (isRoot ? ' <span class="note">(rădăcină)</span>' : '') + '</td>' +
+      '<td><b></b><br><a href="/e/' + e.slug + '">/e/' + e.slug + '</a>' + (isRoot ? ' <span class="note">(rădăcină)</span>' : '') + '</td>' +
       '<td>' + (CFG.eventTypes[e.type] ? CFG.eventTypes[e.type].label : e.type) + '<br><span class="note">' + e.template + '</span></td>' +
       '<td>' + (e.createdAt ? new Date(e.createdAt).toLocaleDateString('ro-RO') : '') + (e.date ? '<br><span class="note">' + escapeHtml(e.date) + '</span>' : '') + '</td>' +
       '<td><span class="plan ' + e.plan + '">' + (e.plan === 'paid' ? 'activ' : 'demo') + '</span></td>' +
@@ -123,7 +126,7 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp
 
 async function action(a, e) {
   try {
-    if (a === 'login') { const r = await api('/event/' + e.slug + '/login', { method: 'POST' }); window.open(r.adminUrl, '_blank'); return; }
+    if (a === 'login') { const r = await api('/event/' + e.slug + '/login', { method: 'POST' }); location.href = r.adminUrl; return; }
     if (a === 'paid' || a === 'demo') { await api('/event/' + e.slug, jsonReq('PATCH', { plan: a })); }
     if (a === 'limit') { const gb = prompt('Limita de spațiu în GB pentru ' + e.slug + ':', (e.maxTotalBytes / 1073741824).toFixed(1)); if (!gb) return; await api('/event/' + e.slug, jsonReq('PATCH', { maxTotalBytes: Math.round(Number(gb) * 1073741824) })); }
     if (a === 'note') { const n = prompt('Notă internă (plată, factură etc.):', e.note || ''); if (n === null) return; await api('/event/' + e.slug, jsonReq('PATCH', { note: n })); }

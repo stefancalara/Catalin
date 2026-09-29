@@ -1,4 +1,4 @@
-import { escapeHtml } from '../util.js';
+import { escapeHtml, backButton } from '../util.js';
 
 /* Pagina de autentificare a platformei: clientul introduce adresa evenimentului
    (sau doar numele scurt) și parola aleasă la creare, apoi ajunge în panoul lui. */
@@ -20,6 +20,10 @@ export function renderLoginPage(env, url) {
   body { font-family: 'Montserrat', system-ui, sans-serif; background: var(--crem); color: #333b37; line-height: 1.5; min-height: 100vh; display: flex; flex-direction: column; }
   header { padding: 18px 24px; max-width: 1100px; width: 100%; margin: 0 auto; }
   .logo { font-family: 'Cormorant Garamond', serif; font-size: 1.7rem; color: var(--verde-inchis); text-decoration: none; font-weight: 600; }
+  .brandbar { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 7px 14px; border: 1px solid var(--linie); border-radius: 999px; background: #fff; color: var(--verde-inchis); text-decoration: none; font-size: .85rem; font-weight: 500; line-height: 1.2; }
+  .back-btn:hover { border-color: var(--verde); }
+  .back-btn[hidden] { display: none; }
   main { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px 60px; }
   .card { background: #fff; border: 1px solid var(--linie); border-radius: 18px; padding: 32px 28px; width: 100%; max-width: 440px; box-shadow: 0 10px 40px rgba(15,110,87,.06); }
   h1 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 2rem; color: var(--verde-inchis); line-height: 1.15; }
@@ -36,7 +40,7 @@ export function renderLoginPage(env, url) {
 </style>
 </head>
 <body>
-<header><a class="logo" href="/">${escapeHtml(brand)}</a></header>
+<header><div class="brandbar">${backButton('/')}<a class="logo" href="/">${escapeHtml(brand)}</a></div></header>
 <main>
   <form class="card" id="f">
     <h1>Intră în panoul evenimentului</h1>
