@@ -162,6 +162,12 @@ export function renderLandingPage(env, url, me = null) {
   .step .n { width: 34px; height: 34px; border-radius: 50%; background: var(--verde); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; margin-bottom: 12px; }
   .step h3 { font-size: 1.05rem; color: var(--verde-inchis); margin-bottom: 6px; }
   .step p { font-size: .9rem; color: #5b615c; }
+  .tutorial { margin-top: 34px; text-align: center; }
+  .tutorial h3 { font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 1.6rem; color: var(--verde-inchis); }
+  .tutorial p { color: #6b716c; font-size: .95rem; margin: 6px auto 18px; max-width: 560px; }
+  .tutorial-video { margin: 0 auto; max-width: 880px; border-radius: 16px; overflow: hidden; background: #111; box-shadow: 0 18px 50px rgba(10,74,59,.18); }
+  .tutorial-video video { display: block; width: 100%; height: auto; }
+  .tutorial-video.portrait { max-width: 320px; border-radius: 28px; border: 6px solid #222; }
   .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
   .feat { background: #fff; border: 1px solid var(--linie); border-radius: 14px; padding: 18px; display: flex; gap: 12px; }
   .feat .i { font-size: 1.5rem; flex: none; }
@@ -224,6 +230,11 @@ export function renderLandingPage(env, url, me = null) {
     <div class="step"><div class="n">2</div><h3>Printezi cartonașele</h3><p>Planșe A4 gata de tăiat și îndoit, în stilul paginii. Le pui pe mese, în invitații sau pe un afiș.</p></div>
     <div class="step"><div class="n">3</div><h3>Invitații scanează și încarcă</h3><p>Din galeria telefonului, mai multe poze și clipuri deodată, la calitate originală. Tu le vezi live și le descarci pe toate într-un ZIP.</p></div>
   </div>
+  <div class="tutorial" id="tutorial">
+    <h3>Vezi cum funcționează, în 2 minute</h3>
+    <p>Un tur ghidat prin platformă: de la crearea albumului până la cartonașele QR și pagina invitaților.</p>
+    <div class="tutorial-video"><video id="tutorialVideo" controls playsinline preload="metadata"></video></div>
+  </div>
 </section>
 
 <section id="functii">
@@ -280,6 +291,16 @@ export function renderLandingPage(env, url, me = null) {
   <p style="color:#6b716c;margin:10px 0 20px">Albumul tău e gata în 2 minute.</p>
   <a class="btn" href="/creeaza">Creează albumul tău →</a>
 </div>
+<script>
+// Tutorialul potrivit dispozitivului: filmat pe telefon pentru telefon, pe desktop pentru desktop
+(() => {
+  const v = document.getElementById('tutorialVideo'); if (!v) return;
+  const mobile = matchMedia('(max-width: 640px)').matches || (matchMedia('(pointer: coarse)').matches && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+  const name = mobile ? 'tutorial-mobile' : 'tutorial-desktop';
+  v.poster = '/' + name + '.jpg'; v.src = '/' + name + '.mp4';
+  if (mobile) v.parentElement.classList.add('portrait');
+})();
+</script>
 <footer>© ${new Date().getFullYear()} ${escapeHtml(brand)} · ${escapeHtml(contact || '')}</footer>
 </body>
 </html>`;

@@ -367,7 +367,6 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'mesaje') loadMessages();
   history.replaceState(null, '', '#' + b.dataset.tab);
 });
-if (location.hash) { const b = document.querySelector('.tabs button[data-tab="' + location.hash.slice(1) + '"]'); if (b) b.click(); }
 $('logout').onclick = async () => { await fetch(CFG.base + '/admin/logout', { method: 'POST' }); location.reload(); };
 
 /* ---- Amintiri ---- */
@@ -631,9 +630,10 @@ $('coverDelete').onclick = async () => { if (!confirm('Ștergi poza principală?
 /* ---- QR & linkuri ---- */
 function updateLinks() {
   $('publicLink').textContent = CFG.publicUrl;
-  $('slideshowLink').textContent = location.origin + CFG.slideshowUrl;
+  const origin = new URL(CFG.publicUrl).origin; // adresa publică a platformei, nu cea din bara browserului
+  $('slideshowLink').textContent = origin + CFG.slideshowUrl;
   $('slideshowOpen').href = CFG.slideshowUrl;
-  $('galleryLink').textContent = location.origin + CFG.galleryUrl;
+  $('galleryLink').textContent = origin + CFG.galleryUrl;
   $('galleryHelp').textContent = ev.publicGallery ? 'Galeria e publică: invitații văd un link către ea pe pagina de încărcare.' : 'Galeria publică e dezactivată (o poți porni din Personalizare → Funcții pentru invitați). Linkul de mai jos funcționează doar când e activă.';
   $('slugEcho').textContent = ev.slug;
   $('planBadge').textContent = ev.plan === 'paid' ? 'activ' : 'demo';
@@ -699,6 +699,9 @@ $('delBtn').onclick = async () => {
 fillForm();
 updateLinks();
 load();
+// Abia acum, după ce tot scriptul e definit: tab-ul din #hash (ex. #personalizare după creare).
+// Înainte rula prea devreme și previzualizarea rămânea goală (ReferenceError pe previewTimer).
+if (location.hash) { const b = document.querySelector('.tabs button[data-tab="' + location.hash.slice(1) + '"]'); if (b) b.click(); }
 </script>
 </body>
 </html>`;

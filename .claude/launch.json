@@ -16,6 +16,27 @@
         "PLATFORM_HOST:localhost"
       ],
       "port": 8787
+    },
+    {
+      "name": "wrangler-tutorial",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "wrangler@3",
+        "dev",
+        "--port",
+        "8788",
+        "--inspector-port",
+        "9230",
+        "--local-upstream",
+        "pozeqr.ro",
+        "--var",
+        "PLATFORM_HOST:pozeqr.ro",
+        "--local-protocol",
+        "https"
+      ],
+      "port": 8788,
+      "url": "https://localhost:8788"
     }
   ]
 }
