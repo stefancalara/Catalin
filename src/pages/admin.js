@@ -3,7 +3,7 @@
  */
 
 import { escapeHtml, jsonForScript, backButton } from '../util.js';
-import { TEMPLATES, EVENT_TYPES } from '../templates.js';
+import { TEMPLATES, EVENT_TYPES, defaultTexts } from '../templates.js';
 import { publicEvent } from '../store.js';
 
 const SHELL_CSS = `
@@ -533,12 +533,25 @@ $('zipCancel').onclick = () => { if (zipAbort) zipAbort.abort(); };
 
 /* ---- Personalizare ---- */
 const TEXT_KEYS = ['subtitle', 'buttonText', 'buttonHint', 'introText', 'thanksText', 'footer', 'guestbookTitle', 'cardInvite', 'cardScan'];
+// Aceeași funcție ca pe server: textele rămase implicite urmăresc tipul evenimentului și numele.
+const EVENT_TYPES = CFG.eventTypes;
+${defaultTexts.toString()}
+let textCtx = null;
+function syncTexts() {
+  const cur = { type: $('f_type').value, name1: $('f_name1').value.trim(), name2: $('f_name2').value.trim() };
+  if (textCtx) {
+    const before = defaultTexts(textCtx.type, textCtx.name1, textCtx.name2), after = defaultTexts(cur.type, cur.name1, cur.name2);
+    for (const k of TEXT_KEYS) { const el = $('t_' + k); if (el.value === before[k]) el.value = after[k]; }
+  }
+  textCtx = cur;
+}
 function fillForm() {
   const sel = $('f_type'); sel.innerHTML = '';
   for (const [id, t] of Object.entries(CFG.eventTypes)) { const o = document.createElement('option'); o.value = id; o.textContent = t.emoji + ' ' + t.label; sel.appendChild(o); }
   sel.value = ev.type;
   $('f_date').value = ev.date || ''; $('f_name1').value = ev.name1 || ''; $('f_name2').value = ev.name2 || '';
   for (const k of TEXT_KEYS) $('t_' + k).value = (ev.texts && ev.texts[k]) || '';
+  textCtx = null; syncTexts();
   $('f_intro').checked = ev.intro !== false; $('f_guestbook').checked = !!ev.guestbook; $('f_publicGallery').checked = !!ev.publicGallery;
   $('c_primary').value = ev.colors.primary; $('c_accent').value = ev.colors.accent; $('c_bg').value = ev.colors.bg;
   $('f_contact').value = ev.contact || '';
@@ -594,12 +607,15 @@ document.querySelectorAll('#tab-personalizare input, #tab-personalizare select, 
   el.addEventListener('input', () => refreshPreview());
   el.addEventListener('change', () => refreshPreview());
 });
+for (const id of ['f_type', 'f_name1', 'f_name2']) { $(id).addEventListener('input', syncTexts); $(id).addEventListener('change', syncTexts); }
 $('saveBtn').onclick = async () => {
   const msg = $('saveMsg'); msg.className = 'msg'; msg.textContent = 'Se salvează…';
   try {
     const d = draft();
     const r = await post('/settings', d);
     ev = r.event; msg.textContent = 'Salvat ✓'; renderTemplates(); updateLinks();
+    for (const k of TEXT_KEYS) $('t_' + k).value = (ev.texts && ev.texts[k]) || '';
+    textCtx = null; syncTexts();
   } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
 };
 $('coverInput').onchange = async (e) => {

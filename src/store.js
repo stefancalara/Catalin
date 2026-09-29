@@ -120,6 +120,9 @@ export async function buildEvent(env, secret, input) {
 /** Aplică modificările permise din panoul de admin peste configurația existentă. */
 export function applySettings(ev, input) {
   const s = input || {};
+  // Textele care încă sunt cele implicite se regenerează dacă se schimbă tipul sau numele
+  // (altfel un botez ar rămâne cu „de la nunta noastră” pe cartonașe).
+  const before = defaultTexts(ev.type, ev.name1, ev.name2);
   if (typeof s.name1 === 'string') ev.name1 = s.name1.trim().slice(0, 60) || ev.name1;
   if (typeof s.name2 === 'string') ev.name2 = s.name2.trim().slice(0, 60);
   if (typeof s.date === 'string') ev.date = s.date.trim().slice(0, 60);
@@ -137,6 +140,9 @@ export function applySettings(ev, input) {
       if (typeof s.texts[k] === 'string') ev.texts[k] = s.texts[k].trim().slice(0, k === 'cardScan' ? 240 : 140);
     }
   }
+  const after = defaultTexts(ev.type, ev.name1, ev.name2);
+  ev.texts = ev.texts || {};
+  for (const k of Object.keys(after)) if (ev.texts[k] === before[k]) ev.texts[k] = after[k];
   return ev;
 }
 

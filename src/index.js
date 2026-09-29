@@ -607,11 +607,23 @@ async function serveCover(env, ev, request, base) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
 <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${pal.c1l}"/><stop offset="1" stop-color="${pal.c1}"/></linearGradient></defs>
 <rect width="400" height="500" fill="url(#g)"/>
-<path d="M200 330 C120 270 90 220 110 180 C130 145 180 150 200 190 C220 150 270 145 290 180 C310 220 280 270 200 330 Z" fill="none" stroke="${pal.c1d}" stroke-width="3" opacity=".55"/>
+${placeholderShape(ev.type, pal.c1d)}
 <text x="200" y="250" text-anchor="middle" font-family="Georgia, serif" font-size="46" fill="${pal.c1d}" opacity=".85">${escapeHtml(initials)}</text>
 <text x="200" y="420" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="16" fill="${pal.c1d}" opacity=".7">poza va apărea aici</text>
 </svg>`;
   return new Response(svg, { headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'no-store' } });
+}
+
+// Conturul din placeholder: inimă la nuntă, stea la petreceri, cerc la botez, nimic la firmă.
+function placeholderShape(type, color) {
+  const attrs = `fill="none" stroke="${color}" stroke-width="3" opacity=".55"`;
+  if (type === 'corporate') return '';
+  if (type === 'nunta' || type === 'aniversare') return `<path d="M200 330 C120 270 90 220 110 180 C130 145 180 150 200 190 C220 150 270 145 290 180 C310 220 280 270 200 330 Z" ${attrs}/>`;
+  if (type === 'botez') return `<circle cx="200" cy="235" r="95" ${attrs}/><circle cx="200" cy="235" r="108" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="4 8" opacity=".55"/>`;
+  // majorat, alt eveniment: stea
+  const pts = [];
+  for (let i = 0; i < 10; i++) { const r = i % 2 ? 48 : 110, a = -Math.PI / 2 + i * Math.PI / 5; pts.push((200 + r * Math.cos(a)).toFixed(1) + ',' + (235 + r * Math.sin(a)).toFixed(1)); }
+  return `<polygon points="${pts.join(' ')}" stroke-linejoin="round" ${attrs}/>`;
 }
 
 async function serveObject(env, key, forceDownload, request, downloadName) {
