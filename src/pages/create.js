@@ -17,7 +17,7 @@ export function renderCreatePage(env, url) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Creează gratuit pagina cu cod QR pentru poze de la nuntă | ${escapeHtml(brand)}</title>
+<title>Creează gratuit albumul cu cod QR pentru poze de la nuntă | ${escapeHtml(brand)}</title>
 <meta name="description" content="Creează în 2 minute pagina cu cod QR prin care invitații îți trimit pozele și clipurile de la nuntă, botez sau orice eveniment. Alegi template-ul și culorile, testezi gratuit.">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="${escapeHtml(site)}/creeaza">
@@ -26,7 +26,7 @@ export function renderCreatePage(env, url) {
 <meta property="og:site_name" content="${escapeHtml(brand)}">
 <meta property="og:locale" content="ro_RO">
 <meta property="og:url" content="${escapeHtml(site)}/creeaza">
-<meta property="og:title" content="Creează gratuit pagina ta cu cod QR pentru poze — ${escapeHtml(brand)}">
+<meta property="og:title" content="Creează gratuit albumul tău cu cod QR pentru poze — ${escapeHtml(brand)}">
 <meta property="og:description" content="Gata în 2 minute: alegi template-ul și culorile, primești linkul și codul QR, iar invitații îți trimit pozele și clipurile din telefon.">
 <meta property="og:image" content="${escapeHtml(site)}/og-image.jpg">
 <meta property="og:image:type" content="image/jpeg">
@@ -143,7 +143,7 @@ export function renderCreatePage(env, url) {
       <input type="text" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true" data-lpignore="true" data-1p-ignore>
     </div>
 
-    <button class="btn" type="submit" id="submit">Creează pagina și codul QR →</button>
+    <button class="btn" type="submit" id="submit">Creează albumul și codul QR →</button>
     <div class="err" id="err"></div>
     <p class="fine">Nu ai nevoie de card. Planul demo are ${cfg.demoMb} MB (aprox. ${cfg.demoPhotos} de poze); activarea planului complet se face după ce testezi.</p>
   </form>
@@ -224,7 +224,7 @@ $('f').onsubmit = async (e) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Eroare');
     location.href = (data.adminUrl || data.url || '/') + '#personalizare';
-  } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'Creează pagina și codul QR →'; }
+  } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'Creează albumul și codul QR →'; }
 };
 
 renderTypes();

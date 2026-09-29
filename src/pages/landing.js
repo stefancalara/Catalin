@@ -201,7 +201,7 @@ export function renderLandingPage(env, url, me = null) {
   <div>
     <h1>Toate pozele de la <em>evenimentul tău</em>, trimise de invitați printr-un cod QR</h1>
     <p>Pui cartonașul cu cod QR pe mese. Invitații scanează, aleg pozele și clipurile din telefon și gata — apar în albumul vostru. Fără aplicație, fără cont, fără limite de invitați.</p>
-    <a class="btn" href="/creeaza">Creează pagina ta →</a>
+    <a class="btn" href="/creeaza">Creează albumul tău →</a>
     ${demoEvent ? `<a class="btn ghost" href="${escapeHtml(demoEvent)}">Vezi un exemplu</a>` : ''}
     <div class="fine">Gata în 2 minute · ${demoMb} MB gratuit pentru testare (aprox. ${demoPhotos} de poze) · nunți, botezuri, majorate, evenimente de firmă</div>
   </div>
@@ -277,8 +277,8 @@ export function renderLandingPage(env, url, me = null) {
 
 <div class="final">
   <h2 style="font-family:'Cormorant Garamond',serif;font-weight:600;font-size:2rem;color:var(--verde-inchis)">Începe acum, gratuit</h2>
-  <p style="color:#6b716c;margin:10px 0 20px">Pagina ta e gata în 2 minute.</p>
-  <a class="btn" href="/creeaza">Creează pagina ta →</a>
+  <p style="color:#6b716c;margin:10px 0 20px">Albumul tău e gata în 2 minute.</p>
+  <a class="btn" href="/creeaza">Creează albumul tău →</a>
 </div>
 <footer>© ${new Date().getFullYear()} ${escapeHtml(brand)} · ${escapeHtml(contact || '')}</footer>
 </body>
