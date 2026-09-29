@@ -122,7 +122,6 @@ export function renderLandingPage(env, url, me = null) {
   .logo { font-family: 'Cormorant Garamond', serif; font-size: 1.7rem; color: var(--verde-inchis); text-decoration: none; font-weight: 600; }
   header nav a { margin-left: 18px; text-decoration: none; color: #555; font-size: .9rem; }
   header nav a.cta { background: var(--verde); color: #fff; padding: 9px 16px; border-radius: 999px; }
-  header nav a.login { color: var(--verde); font-weight: 500; }
   .brandbar { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .back-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 7px 14px; border: 1px solid var(--linie); border-radius: 999px; background: #fff; color: var(--verde-inchis); text-decoration: none; font-size: .85rem; font-weight: 500; line-height: 1.2; }
   .back-btn:hover { border-color: var(--verde); }
@@ -133,8 +132,7 @@ export function renderLandingPage(env, url, me = null) {
     header { padding: 12px 16px; gap: 12px; }
     .logo { font-size: 1.45rem; white-space: nowrap; }
     header nav { display: flex; align-items: center; }
-    header nav a:not(.cta):not(.login) { display: none; }
-    header nav a.login { margin: 0 12px 0 0; font-size: .85rem; white-space: nowrap; }
+    header nav a:not(.cta) { display: none; }
     header nav a.cta { margin-left: 0; padding: 8px 14px; font-size: .85rem; white-space: nowrap; }
     header { flex-wrap: wrap; row-gap: 10px; }
     header nav { margin-left: auto; }
@@ -196,7 +194,7 @@ export function renderLandingPage(env, url, me = null) {
 <body>
 <header>
   <div class="brandbar">${backButton()}<a class="logo" href="/">${escapeHtml(brand)}</a></div>
-  <nav><a href="#cum">Cum funcționează</a><a href="#template">Template-uri</a><a href="#pret">Preț</a>${me ? `<a class="login" href="/e/${escapeHtml(me.slug)}/admin" title="${escapeHtml(me.name)}">Panoul meu</a>` : `<a class="login" href="/login">Intră în panou</a>`}<a class="cta" href="/creeaza">Creează gratuit</a></nav>
+  <nav><a href="#cum">Cum funcționează</a><a href="#template">Template-uri</a><a href="#pret">Preț</a>${me ? `<a class="cta" href="/e/${escapeHtml(me.slug)}/admin" title="${escapeHtml(me.name)}">Administrează evenimentul</a>` : `<a class="cta" href="/login">Intră în panou</a>`}</nav>
 </header>
 
 <div class="hero">
