@@ -726,14 +726,14 @@ ${fontLink(tpl)}
 ${cssVars(tpl, pal)}
   :root { --hartie: ${paper}; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #e8e6e0; font-family: var(--font-body); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #e8e6e0; font-family: var(--font-body); -webkit-print-color-adjust: exact; print-color-adjust: exact; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   .toolbar { background: var(--c1d); color: #fff; padding: 16px 20px; text-align: center; font-size: .9rem; line-height: 1.6; }
   .toolbar a { color: #fff; }
   .toolbar .back-row { text-align: left; margin-bottom: 8px; }
   .toolbar .back-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 13px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; background: rgba(255,255,255,.1); text-decoration: none; font-size: .85rem; line-height: 1.2; }
   .toolbar button { display: inline-block; margin: 10px 6px 0; background: var(--acc); color: ${isDark(pal.acc) ? '#fff' : '#222'}; border: none; border-radius: 999px; padding: 12px 34px; font-family: inherit; font-size: 1rem; cursor: pointer; }
-  .sheet { width: 210mm; height: 297mm; page: portrait; background: var(--hartie); position: relative; margin: 24px auto; box-shadow: 0 4px 24px rgba(0,0,0,.2); overflow: hidden; }
-  .sheet.landscape { width: 297mm; height: 210mm; page: landscape; }
+  .sheet { width: 210mm; height: 297mm; page: portrait; background: var(--hartie); position: relative; margin: 24px auto; box-shadow: 0 4px 24px rgba(0,0,0,.2); overflow: hidden; zoom: var(--fit-portrait, 1); }
+  .sheet.landscape { width: 297mm; height: 210mm; page: landscape; zoom: var(--fit-landscape, 1); }
   .grid { position: absolute; inset: 0; display: grid; grid-template-rows: 1fr 1fr; }
   .grid.four { grid-template-columns: 1fr 1fr; }
   .grid.two { grid-template-columns: 1fr; }
@@ -775,7 +775,7 @@ ${cssVars(tpl, pal)}
   .foldline.vertical { top: 0; bottom: 0; left: 50%; right: auto; border-top: none; border-left: .4pt dotted #c5bfb2; }
   .foldline.vertical span { right: auto; left: -2.2mm; top: 2mm; writing-mode: vertical-rl; padding: 1mm 0; }
   .sheet-label { position: absolute; bottom: 1.5mm; left: 0; right: 0; text-align: center; font-size: 5.5pt; color: #c5bfb2; }
-  @media print { body { background: none; } .toolbar { display: none; } .sheet { margin: 0; box-shadow: none; page-break-after: always; } .sheet:last-child { page-break-after: auto; } }
+  @media print { body { background: none; } .toolbar { display: none; } .sheet, .sheet.landscape { margin: 0; box-shadow: none; page-break-after: always; zoom: 1; } .sheet:last-child { page-break-after: auto; } }
   @page { size: A4; margin: 0; }
   @page portrait { size: A4 portrait; }
   @page landscape { size: A4 landscape; }
@@ -813,6 +813,17 @@ const cardHtml = '<div class="card-inner">' +
   ${jsonForScript(madeBy)} +
   '</div>';
 document.querySelectorAll('.panel').forEach(p => { p.innerHTML = cardHtml; });
+
+// Pe ecrane înguste (telefon), planșele se micșorează cât să încapă întregi pe lățime; la print rămân la 100%
+function fitSheets() {
+  const avail = document.documentElement.clientWidth - 24;
+  const mm = 96 / 25.4;
+  const root = document.documentElement.style;
+  root.setProperty('--fit-portrait', Math.min(1, avail / (210 * mm)));
+  root.setProperty('--fit-landscape', Math.min(1, avail / (297 * mm)));
+}
+fitSheets();
+addEventListener('resize', fitSheets);
 
 function downloadQr() {
   const size = 1024;
